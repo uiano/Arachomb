@@ -3,22 +3,28 @@ import React, { Component } from "react";
 
 const errors = [
   {
-    error_code: 300,
-    error_title: "something went wrong",
-    url_domain: "wiki.uia.no",
-    full_url: "wiki.uia.no/secret_uia_tech_cult",
+    code: 403,
+    name: "Permission denied",
+    domain: "wiki.uia.no",
+    url: "wiki.uia.no/secret_uia_tech_cult",
+    source: "wiki.uia.no",
+    suggestion: "Check if the URL links to a non-public resource, or ask the owner for access if the URL is correct.",
   },
   {
-    error_code: 404,
-    error_title: "something was missing",
-    url_domain: "uia.no",
-    full_url: "uia.no/how_to_cheat",
+    code: 404,
+    name: "Site/resource was not found",
+    domain: "www.uia.no",
+    url: "www.uia.no/resources/how_to_cheat",
+    source: "www.uia.no/resources",
+    suggestion: "Ensure the URL is spelled correctly.  The resource may also have been deleted or removed, check with the owner.",
   },
   {
-    error_code: 404,
-    error_title: "something was missing",
-    url_domain: "birdwatching.uia.no",
-    full_url: "birdwatching.uia.no",
+    code: 404,
+    name: "Site/resource was not found",
+    domain: "birdwatching.uia.no",
+    url: "birdwatching.uia.no",
+    source: none,
+    suggestion: "Ensure the URL is spelled correctly.  The resource may also have been deleted or removed, check with the owner.",
   },
 ];
 
