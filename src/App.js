@@ -1,5 +1,7 @@
 import "./App.css";
 import React, { Component } from "react";
+import axios from "axios";
+import qs from "qs";
 
 const errors = [
   {
@@ -23,7 +25,7 @@ const errors = [
     name: "Site/resource was not found",
     domain: "birdwatching.uia.no",
     url: "birdwatching.uia.no",
-    source: none,
+    source: "",
     suggestion: "Ensure the URL is spelled correctly.  The resource may also have been deleted or removed, check with the owner.",
   },
 ];
@@ -35,6 +37,7 @@ class App extends Component {
     should_search: false,
     errors: errors,
   };
+  set_domain = domain => {};
   find_domains = () => {
     if (!this.should_find_domains) {
       return;
@@ -43,6 +46,11 @@ class App extends Component {
     console.log("find domains for: ", this.main_domain);
   };
   search_sites = () => {};
+  constructor(props){
+	  super(props);
+	  let resp = axios.get("https://www.uia.no");
+	  console.log(resp);
+  }
 
   render() {
     return (
@@ -60,7 +68,7 @@ class App extends Component {
 }
 
 class Error extends Component {
-  state = { error_code: 404, error_title: "", url_domain: "", full_url: "" };
+  state = { code: 404, name: "", domain: "", url: "" };
   constructor(props) {
     super(props);
     this.state = props.props;
@@ -68,7 +76,7 @@ class Error extends Component {
   render() {
     return (
       <li style={{ textAlign: "left" }}>
-        {this.state.error_code},{this.state.full_url}
+        {this.state.code},{this.state.url}
       </li>
     );
   }
