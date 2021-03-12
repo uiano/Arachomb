@@ -44,8 +44,8 @@ async def search_domain(domain: str, visited: Set[str]) -> None:
                 text = soup.BeautifulSoup(req.text, "html.parser")
                 hrefs = {i.get("href") for i in text.find_all(
                     href=True) if i.get("href") not in visited}
-                srcs = {i.get("href") for i in text.find_all(
-                    href=True) if i.get("href") not in visited}
+                srcs = {i.get("src") for i in text.find_all(
+                    href=True) if i.get("src") not in visited}
                 try:
                     to_search |= set(i if i.startswith("http") else get_base_url(
                         current)+i for i in (hrefs | srcs))
