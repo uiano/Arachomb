@@ -34,7 +34,7 @@ async def search_domain(domain: str, visited: Set[str]) -> None:
                 req = await client.get(current)
                 await trio.sleep(1)
             except Exception as e:
-                logging.error(f"{current},  {e}")
+                logging.error(f"{current},  {e.args}")
                 continue
             visited.add(current)
             status = req.status_code
