@@ -55,6 +55,40 @@ async def search_domain(domain: str, visited: Set[str]) -> None:
                 logging.error(f"Status code {status} from {current}")
 
 
+async def search_domain(domain: str, visited: Set[str]) -> NOne:
+    to_search = Set(map(lambda x: await client.get(x), [domain]))
+    while to_search:
+        async with httpx.AsyncClient(timeout=20) as client:
+            current = to_search.pop()
+            
+            if req.text:
+                text = soup.BeautifulSoup(req.text, "html.parser")
+                hrefs = {i.get("href") for i in text.find_all(
+                    href=True) if i.get("href") not in visited}
+                srcs = {i.get("src") for i in text.find_all(
+                    src=True) if i.get("src") not in visited}
+                
+                for url in hrefs | srcs:
+                    for nothanks in ["mailto:", "tel:", "javascript:", "#content-middle"]:
+                        if nothanks in url: continue
+                    try:
+                        r = await client.get(url)
+                        await trio.sleep(1)
+
+                        logging.debug(f"******************\n   {url}\nIn {current.url}\n{r.status_code}")
+
+
+
+
+                    except Exception as e:
+                        logging.error(f"******************\n   {url}\nIn {current.url}\n{e.args}")
+
+
+
+
+
+
+
 async def main() -> None:
     visited = set()
     domains = set(['https://www.uia.no', 'https://cair.uia.no', 'https://home.uia.no', 'https://kompetansetorget.uia.no', 'https://icnp.uia.no', 'http://friluft.uia.no', 'https://passord.uia.no', 'https://windplan.uia.no', 'https://appsanywhere.uia.no', 'https://shift.uia.no',
