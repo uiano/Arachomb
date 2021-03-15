@@ -55,33 +55,37 @@ async def search_domain(domain: str, visited: Set[str]) -> None:
                 logging.error(f"Status code {status} from {current}")
 
 
-async def search_domain(domain: str, visited: Set[str]) -> NOne:
-    to_search = Set(map(lambda x: await client.get(x), [domain]))
-    while to_search:
-        async with httpx.AsyncClient(timeout=20) as client:
+async def search_domain(domain: str, visited: Set[str]) -> None:
+    async with httpx.AsyncClient(timeout=20) as client:
+        resp = await client.get(domain);
+        to_search = set([resp])
+        while to_search:
             current = to_search.pop()
+            text = soup.BeautifulSoup(current.text, "html.parser")
+            hrefs = {i.get("href") for i in text.find_all(
+                href=True) if i.get("href") not in visited}
+            srcs = {i.get("src") for i in text.find_all(
+                src=True) if i.get("src") not in visited}
             
-            if req.text:
-                text = soup.BeautifulSoup(req.text, "html.parser")
-                hrefs = {i.get("href") for i in text.find_all(
-                    href=True) if i.get("href") not in visited}
-                srcs = {i.get("src") for i in text.find_all(
-                    src=True) if i.get("src") not in visited}
-                
-                for url in hrefs | srcs:
-                    for nothanks in ["mailto:", "tel:", "javascript:", "#content-middle"]:
-                        if nothanks in url: continue
-                    try:
-                        r = await client.get(url)
-                        await trio.sleep(1)
+            for url in hrefs | srcs:
+                for nothanks in ["mailto:", "tel:", "javascript:", "#content-middle"]:
+                    if url.startswith(nothanks): 
+                        continue
+                try:
+                    if not url.startswith("http"):
+                        url = "https://"+current.url.host+url
+                    resp = await client.get(url)
+                    await trio.sleep(1)
+                    if 200 <= resp.status_code < 300 or resp.status_code == 301 or resp.status_code == 302:
+                        to_search.add(resp)
 
-                        logging.debug(f"******************\n   {url}\nIn {current.url}\n{r.status_code}")
-
-
+                        logging.debug(f"******************\n   {url}\nIn {current.url}\n{resp.status_code}")
+                    else:
+                        logging.error(f"******************\n   {url}\nIn {current.url}\n{resp.status_code}")
 
 
-                    except Exception as e:
-                        logging.error(f"******************\n   {url}\nIn {current.url}\n{e.args}")
+                except Exception as e:
+                    logging.error(f"******************\n   {url}\nIn {current.url}\n{e.args}")
 
 
 
