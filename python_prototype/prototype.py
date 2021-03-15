@@ -55,6 +55,20 @@ async def search_domain(domain: str, visited: Set[str]) -> None:
                 logging.error(f"Status code {status} from {current}")
 
 
+def handle_url(url: str, current) -> str:
+    https = 's' if "https" in current.url else ''
+    if url.startswith("http"):
+        return url
+    else if url.startswith("#"):
+        return "http" + https + "://" + current.url + url
+    else if url.startswith("//"):
+        return "http" + https + "://" + current.url.host + url[1:]
+    else if url.startswith("/"):
+        return "http" + https + "://" + current.url.host + url
+    else:
+        return "http" + https + "://" + current.url.host + "/" + url
+
+
 async def search_domain(domain: str, visited: Set[str]) -> None:
     async with httpx.AsyncClient(timeout=20) as client:
         resp = await client.get(domain);
@@ -72,9 +86,8 @@ async def search_domain(domain: str, visited: Set[str]) -> None:
                     if url.startswith(nothanks): 
                         continue
                 try:
-                    if not url.startswith("http"):
-                        url = "https://"+current.url.host+url
-                    resp = await client.get(url)
+                    full_url = handle_url(url, current)
+                    resp = await client.get(full_url)
                     await trio.sleep(1)
                     if 200 <= resp.status_code < 300 or resp.status_code == 301 or resp.status_code == 302:
                         to_search.add(resp)
