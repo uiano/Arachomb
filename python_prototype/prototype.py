@@ -57,13 +57,15 @@ async def search_domain(domain: str, visited: Set[str]) -> None:
 
 def handle_url(url: str, current) -> str:
     https = 's' if "https" in current.url else ''
+    url = str(url)
+
     if url.startswith("http"):
         return url
-    else if url.startswith("#"):
+    elif url.startswith("#"):
         return "http" + https + "://" + current.url + url
-    else if url.startswith("//"):
+    elif url.startswith("//"):
         return "http" + https + "://" + current.url.host + url[1:]
-    else if url.startswith("/"):
+    elif url.startswith("/"):
         return "http" + https + "://" + current.url.host + url
     else:
         return "http" + https + "://" + current.url.host + "/" + url
@@ -75,6 +77,8 @@ async def search_domain(domain: str, visited: Set[str]) -> None:
         to_search = set([resp])
         while to_search:
             current = to_search.pop()
+            if "uia.no" not in str(current.url): continue
+
             text = soup.BeautifulSoup(current.text, "html.parser")
             hrefs = {i.get("href") for i in text.find_all(
                 href=True) if i.get("href") not in visited}
