@@ -39,7 +39,7 @@ def handle_url(url: str, current) -> str:
 
 
 async def search_domain(domain: str, visited: Set[str]) -> None:
-    async with httpx.AsyncClient(timeout=20) as client:
+    async with httpx.AsyncClient(timeout=30) as client:
         resp = await client.get(domain);
         to_search = set([resp])
         while to_search:
@@ -59,7 +59,7 @@ async def search_domain(domain: str, visited: Set[str]) -> None:
                 try:
                     full_url = handle_url(url, current)
                     resp = await client.get(full_url)
-                    await trio.sleep(1)
+                    await trio.sleep(0.5)
                     if 200 <= resp.status_code < 300 or resp.status_code == 301 or resp.status_code == 302:
                         to_search.add(resp)
 
