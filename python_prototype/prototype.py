@@ -56,7 +56,7 @@ async def search_domain(domain: str, visited: Set[str]) -> None:
 
 
 def handle_url(url: str, current) -> str:
-    https = 's' if "https" in current.url else ''
+    https = 's' if "https" in str(current.url) else ''
     url = str(url)
 
     if url.startswith("http"):
