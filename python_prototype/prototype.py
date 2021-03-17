@@ -22,39 +22,6 @@ async def google_domain_search(domain: str) -> Set[str]:
     return result
 
 
-async def search_domain(domain: str, visited: Set[str]) -> None:
-    to_search = set([domain])
-    while to_search:
-        async with httpx.AsyncClient(timeout=20) as client:
-            current = to_search.pop()
-            if current.startswith("mailto:") or current.startswith("phone:") or current.startswith("#"):
-                continue
-            logging.debug(f"searching {current}")
-            try:
-                req = await client.get(current)
-                await trio.sleep(1)
-            except Exception as e:
-                logging.error(f"{current},  {e.args}")
-                continue
-            visited.add(current)
-            status = req.status_code
-            if "uia.no" not in current and (200 <= status < 300 or status == 304):
-                continue
-            if 200 <= status < 300 or status == 304:
-                text = soup.BeautifulSoup(req.text, "html.parser")
-                hrefs = {i.get("href") for i in text.find_all(
-                    href=True) if i.get("href") not in visited}
-                srcs = {i.get("src") for i in text.find_all(
-                    href=True) if i.get("src") not in visited}
-                try:
-                    to_search |= set(i if i.startswith("http") else get_base_url(
-                        current)+i for i in (hrefs | srcs))
-                except:
-                    logging.critical("Bad URL found,", hrefs | srcs)
-            else:
-                logging.error(f"Status code {status} from {current}")
-
-
 def handle_url(url: str, current) -> str:
     https = 's' if "https" in str(current.url) else ''
     url = str(url)
