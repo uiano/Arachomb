@@ -4,9 +4,10 @@ import bs4 as soup
 import googlesearch as google
 from typing import Set
 import sys
+import json
 import logging
 
-logging.basicConfig(level=logging.WARN, format="%(levelname)-8s %(message)s", handlers=[
+logging.basicConfig(level=logging.DEBUG, format="%(levelname)-8s %(message)s", handlers=[
     logging.StreamHandler(sys.stdout),
     logging.FileHandler("debug.log")])
 
@@ -64,7 +65,7 @@ def handle_url(url: str, current) -> str:
     elif url.startswith("#"):
         return "http" + https + "://" + current.url + url
     elif url.startswith("//"):
-        return "http" + https + "://" + current.url.host + url[1:]
+        return "http" + https + ":" + url
     elif url.startswith("/"):
         return "http" + https + "://" + current.url.host + url
     else:
@@ -72,7 +73,7 @@ def handle_url(url: str, current) -> str:
 
 
 async def search_domain(domain: str, visited: Set[str]) -> None:
-    async with httpx.AsyncClient(timeout=20) as client:
+    async with httpx.AsyncClient(timeout=30) as client:
         resp = await client.get(domain);
         to_search = set([resp])
         while to_search:
@@ -88,6 +89,7 @@ async def search_domain(domain: str, visited: Set[str]) -> None:
             for url in hrefs | srcs:
                 for nothanks in ["mailto:", "tel:", "javascript:", "#content-middle"]:
                     if url.startswith(nothanks): 
+                        logging.debug(f"******************\n   {url}\nIn {current.url}\ncontains the bads")
                         continue
                 try:
                     full_url = handle_url(url, current)
@@ -96,13 +98,13 @@ async def search_domain(domain: str, visited: Set[str]) -> None:
                     if 200 <= resp.status_code < 300 or resp.status_code == 301 or resp.status_code == 302:
                         to_search.add(resp)
 
-                        logging.debug(f"******************\n   {url}\nIn {current.url}\n{resp.status_code}")
+                        logging.debug(f"******************\n   {full_url}\nIn {current.url}\n{resp.status_code}")
                     else:
-                        logging.error(f"******************\n   {url}\nIn {current.url}\n{resp.status_code}")
+                        logging.error(f"******************\n   {full_url}\nIn {current.url}\n{resp.status_code}")
 
 
                 except Exception as e:
-                    logging.error(f"******************\n   {url}\nIn {current.url}\n{e.args}")
+                    logging.error(f"******************\n   {full_url}\nIn {current.url}\n{e.args}")
 
 
 
@@ -112,8 +114,11 @@ async def search_domain(domain: str, visited: Set[str]) -> None:
 
 async def main() -> None:
     visited = set()
-    domains = set(['https://www.uia.no', 'https://cair.uia.no', 'https://home.uia.no', 'https://kompetansetorget.uia.no', 'https://icnp.uia.no', 'http://friluft.uia.no', 'https://passord.uia.no', 'https://windplan.uia.no', 'https://appsanywhere.uia.no', 'https://shift.uia.no',
-                   'https://insitu.uia.no', 'https://lyingpen.uia.no', 'https://platinum.uia.no', 'https://dekomp.uia.no', 'https://naturblogg.uia.no', 'https://enters.uia.no', 'https://wisenet.uia.no', 'https://libguides.uia.no', 'http://ciem.uia.no'])  # await google_domain_search("uia.no")
+    with open("config.json") as file:
+        data = json.loads(file.read())
+    domains = set(filter(lambda x: data[x], data.keys()))
+    # domains = set(['https://www.uia.no', 'https://cair.uia.no', 'https://home.uia.no', 'https://kompetansetorget.uia.no', 'https://icnp.uia.no', 'http://friluft.uia.no', 'https://passord.uia.no', 'https://windplan.uia.no', 'https://appsanywhere.uia.no', 'https://shift.uia.no',
+    # 'https://insitu.uia.no', 'https://lyingpen.uia.no', 'https://platinum.uia.no', 'https://dekomp.uia.no', 'https://naturblogg.uia.no', 'https://enters.uia.no', 'https://wisenet.uia.no', 'https://libguides.uia.no', 'http://ciem.uia.no'])  # await google_domain_search("uia.no")
 
     async with trio.open_nursery() as nurse:
         for domain in domains:
