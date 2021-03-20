@@ -1,2 +1,5 @@
 # Arachomb
-A tool used to scrape websites for errors in links and linked content.
+Arachomb is a tool for automatic and customizable checking of a website's links and linked content.
+
+# Installation
+First, you need Python >=3.8 installed.  Clone this repository, then in the tool's folder, run virtualenv Venv python3.8? then source Venv/Scripts/activate, and lastly pip install -r requirements.txt.  Finally, run python cli.py.
