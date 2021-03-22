@@ -1,14 +1,18 @@
 import json
 import sqlite3
 
-with open("config.json") as file:
-    data = json.loads(file.read())
-domains = set(filter(lambda x: data[x], data.keys()))
+#with open("config.json") as file:
+#    data = json.loads(file.read())
+#domains = set(filter(lambda x: data[x], data.keys()))
 
-con = sqlite3.connect('[NAME].db')
+def suggestion(code):
+    #TODO: do somethign with this?
+    return code
+
+con = sqlite3.connect("data.db")
 cur = con.cursor()
-
-for error, source, target, timestamp in cur.execute(f"SELECT * FROM errors ORDER BY source"):
+print("finding stuff")
+for error, source, target, timestamp in cur.execute(f"SELECT error_code,source,target,updated_at FROM errors ORDER BY source").fetchall():
     print(f"""*****************\nWe found an error in {source}, in the link to 
         {target}:\n\nhot diggity code here\n\n
         Getting the link returned a {error} error, suggesting you should 
