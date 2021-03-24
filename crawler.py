@@ -31,7 +31,7 @@ def handle_url(url: str, current) -> str:
     if url.startswith("http"):
         return url
     elif url.startswith("#"):
-        return "http" + https + "://" + current.url + url
+        return "http" + https + "://" + str(current.url) + url
     elif url.startswith("//"):
         return "http" + https + ":" + url
     elif url.startswith("/"):
@@ -57,10 +57,10 @@ async def search_domain(domain: str, visited: Set[str]) -> None:
             
             # Loop over the URLs in the current page
             for url in hrefs | srcs:
-                for nothanks in ["mailto:", "tel:", "javascript:", "#content-middle"]:
-                    if url.startswith(nothanks): 
-                        logging.debug(f"******************\n   {url}\nIn {str(current.url)}\ncontains the bads")
-                        continue
+                if any(url.startswith(i) for i in ["mailto:", "tel:", "javascript:", "#content-middle"]):
+                    continue
+                if url == "#": continue
+
                 try:  # getting the content of the URL we're checking currently
                     full_url = handle_url(str(url), current)
                     resp = await client.get(full_url)
@@ -78,6 +78,9 @@ async def search_domain(domain: str, visited: Set[str]) -> None:
 
 
                 except Exception as e:  # Got a non-HTTP error
+                    await cur.execute("""INSERT INTO errors VALUES (?,?,?,?)""", (str(current.url), full_url, str(e.args), str(datetime.date.today())))
+                    #await cur.commit()
+                    await con.commit()
                     logging.error(f"******************\n   {full_url}\nIn {str(current.url)}\n{e.args}")
 
 
@@ -97,7 +100,7 @@ async def main() -> None:
                 PRIMARY KEY (domain)
                 ) """)
 
-    #await cur.execute("""DROP TABLE IF EXISTS errors""") #reset database for testing
+    await cur.execute("""DROP TABLE IF EXISTS errors""") #reset database for testing
     await cur.execute("""CREATE TABLE IF NOT EXISTS errors 
                 (source TEXT NOT NULL, 
                 target TEXT NOT NULL,

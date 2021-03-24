@@ -7,7 +7,7 @@ import sqlite3
 
 def suggestion(code):
     #TODO: do something with this?
-    if code = "404": pass
+    if code == "404": pass
     return code
 
 con = sqlite3.connect("data.db")
