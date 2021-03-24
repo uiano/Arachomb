@@ -27,7 +27,6 @@ async def google_domain_search(domain: str) -> Set[str]:
 
 def handle_url(url: str, current) -> str:
     https = 's' if "https" in str(current.url) else ''
-    url = str(url)
 
     if url.startswith("http"):
         return url
@@ -49,7 +48,6 @@ async def search_domain(domain: str, visited: Set[str]) -> None:
         to_search = set([resp])
         while to_search:
             current = to_search.pop()
-            if "uia.no" not in str(current.url): continue
 
             text = soup.BeautifulSoup(current.text, "html.parser")
             hrefs = {i.get("href") for i in text.find_all(
@@ -57,28 +55,30 @@ async def search_domain(domain: str, visited: Set[str]) -> None:
             srcs = {i.get("src") for i in text.find_all(
                 src=True) if i.get("src") not in visited}
             
+            # Loop over the URLs in the current page
             for url in hrefs | srcs:
                 for nothanks in ["mailto:", "tel:", "javascript:", "#content-middle"]:
                     if url.startswith(nothanks): 
-                        logging.debug(f"******************\n   {url}\nIn {current.url}\ncontains the bads")
+                        logging.debug(f"******************\n   {url}\nIn {str(current.url)}\ncontains the bads")
                         continue
-                try:
-                    full_url = handle_url(url, current)
+                try:  # getting the content of the URL we're checking currently
+                    full_url = handle_url(str(url), current)
                     resp = await client.get(full_url)
                     await asyncio.sleep(0.5)
                     if 200 <= resp.status_code < 300 or resp.status_code == 301 or resp.status_code == 302:
-                        to_search.add(resp)
+                        if ".js" not in full_url and "uia.no" in full_url:
+                            to_search.add(resp)
 
-                        logging.debug(f"******************\n   {full_url}\nIn {current.url}\n{resp.status_code}")
-                    else:
-                        await cur.execute("""INSERT INTO errors VALUES (?,?,?,?,?)""",(str(current.url),str(full_url),resp.status_code,"error name",str(datetime.date.today())))
+                        logging.debug(f"******************\n   {full_url}\nIn {str(current.url)}\n{resp.status_code}")
+                    else:  # Got an HTTP error
+                        await cur.execute("""INSERT INTO errors VALUES (?,?,?,?)""", (str(current.url), full_url, str(resp.status_code), str(datetime.date.today())))
                         #await cur.commit()
                         await con.commit()
-                        logging.error(f"******************\n   {full_url}\nIn {current.url}\n{resp.status_code}")
+                        logging.error(f"******************\n   {full_url}\nIn {str(current.url)}\n{resp.status_code}")
 
 
-                except Exception as e:
-                    logging.error(f"******************\n   {full_url}\nIn {current.url}\n{e.args}")
+                except Exception as e:  # Got a non-HTTP error
+                    logging.error(f"******************\n   {full_url}\nIn {str(current.url)}\n{e.args}")
 
 
 
@@ -101,8 +101,7 @@ async def main() -> None:
     await cur.execute("""CREATE TABLE IF NOT EXISTS errors 
                 (source TEXT NOT NULL, 
                 target TEXT NOT NULL,
-                error_code INTEGER,
-                error_name TEXT,
+                error TEXT,
                 updated_at TEXT,
                 CONSTRAINT prim_key PRIMARY KEY (source, target) 
                 )""")
