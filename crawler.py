@@ -57,9 +57,9 @@ async def search_domain(domain: str, visited: Set[str]) -> None:
             
             # Loop over the URLs in the current page
             for url in hrefs | srcs:
-                if any(url.startswith(i) for i in ["mailto:", "tel:", "javascript:", "#content-middle"]):
+                if any(url.startswith(i) for i in ["mailto:", "tel:", "javascript:", "#content-middle", "about:blank"]):
                     continue
-                if url == "#": continue
+                if url == "#" or "linkedin" in url: continue
 
                 try:  # getting the content of the URL we're checking currently
                     full_url = handle_url(str(url), current)
