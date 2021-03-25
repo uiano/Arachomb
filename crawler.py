@@ -69,19 +69,20 @@ async def search_domain(domain: str, visited: Set[str]) -> None:
                         if ".js" not in full_url and "uia.no" in full_url:
                             to_search.add(resp)
 
-                        logging.debug(f"******************\n   {full_url}\nIn {str(current.url)}\n{resp.status_code}")
+                        logging.debug(f"******************\n   {full_url}\n   {url}\nIn {str(current.url)}\n{resp.status_code}")
+
                     else:  # Got an HTTP error
                         await cur.execute("""INSERT INTO errors VALUES (?,?,?,?)""", (str(current.url), full_url, str(resp.status_code), str(datetime.date.today())))
                         #await cur.commit()
                         await con.commit()
-                        logging.error(f"******************\n   {full_url}\nIn {str(current.url)}\n{resp.status_code}")
+                        logging.error(f"******************\n   {full_url}\n   {url}\nIn {str(current.url)}\n{resp.status_code}")
 
 
                 except Exception as e:  # Got a non-HTTP error
                     await cur.execute("""INSERT INTO errors VALUES (?,?,?,?)""", (str(current.url), full_url, str(e.args), str(datetime.date.today())))
                     #await cur.commit()
                     await con.commit()
-                    logging.error(f"******************\n   {full_url}\nIn {str(current.url)}\n{e.args}")
+                    logging.error(f"******************\n   {full_url}\n   {url}\nIn {str(current.url)}\n{e.args}")
 
 
 
