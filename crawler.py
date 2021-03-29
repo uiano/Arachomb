@@ -31,7 +31,7 @@ def handle_url(url: str, current) -> str:
     if url.startswith("http"):
         return url
     elif url.startswith("#"):
-        return "http" + https + "://" + str(current.url) + url
+        return str(current.url) + url
     elif url.startswith("//"):
         return "http" + https + ":" + url
     elif url.startswith("/"):
@@ -66,7 +66,7 @@ async def search_domain(domain: str, visited: Set[str]) -> None:
                     resp = await client.get(full_url)
                     await asyncio.sleep(0.5)
                     if 200 <= resp.status_code < 300 or resp.status_code == 301 or resp.status_code == 302:
-                        if ".js" not in full_url and "uia.no" in full_url:
+                        if ".js" not in full_url and "uia.no" in resp.url.host:
                             to_search.add(resp)
 
                         logging.debug(f"******************\n   {full_url}\n   {url}\nIn {str(current.url)}\n{resp.status_code}")
@@ -78,12 +78,15 @@ async def search_domain(domain: str, visited: Set[str]) -> None:
                         logging.error(f"******************\n   {full_url}\n   {url}\nIn {str(current.url)}\n{resp.status_code}")
 
 
-                except Exception as e:  # Got a non-HTTP error
+                except httpx.ConnectError as e:  # "Tidsavbruddsperioden for semaforen har utløpt"
                     await cur.execute("""INSERT INTO errors VALUES (?,?,?,?)""", (str(current.url), full_url, str(e.args), str(datetime.date.today())))
                     #await cur.commit()
                     await con.commit()
                     logging.error(f"******************\n   {full_url}\n   {url}\nIn {str(current.url)}\n{e.args}")
-
+                
+                except aiosqlite.IntegrityError as e:  # Unique constraint failed
+                    # Some page has the same faulty link to the same place??  Ignore
+                    pass
 
 
 
