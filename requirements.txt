@@ -1,3 +1,4 @@
+aiosqlite==0.17.0
 async-generator==1.10
 attrs==20.3.0
 beautifulsoup4==4.9.3
@@ -13,4 +14,4 @@ rfc3986==1.4.0
 sniffio==1.2.0
 sortedcontainers==2.3.0
 soupsieve==2.1
-trio==0.18.0
+typing-extensions==3.7.4.3
