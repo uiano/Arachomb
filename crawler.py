@@ -49,6 +49,7 @@ async def search_domain(domain: str, visited: Set[str]) -> None:
         while to_search:
             current = to_search.pop()
 
+            # Get all the URLs in the current page
             text = soup.BeautifulSoup(current.text, "html.parser")
             hrefs = {i.get("href") for i in text.find_all(
                 href=True) if i.get("href") not in visited}
@@ -86,6 +87,7 @@ async def search_domain(domain: str, visited: Set[str]) -> None:
                 
                 except aiosqlite.IntegrityError as e:  # Unique constraint failed
                     # Some page has the same faulty link to the same place??  Ignore
+                    logging.error(f"******************\n   {full_url}\n   {url}\nIn {str(current.url)}\nThis error apparently already exists")
                     pass
 
 
@@ -94,28 +96,11 @@ async def search_domain(domain: str, visited: Set[str]) -> None:
 
 DATABASE_NAME = "data.db"
 async def main() -> None:
-    #TODO: move this into the cli script/server, since the crawler should only insert data
-    con = await aiosqlite.connect(DATABASE_NAME)
-    cur = await con.cursor()
-    #await cur.execute("""DROP TABLE IF EXISTS subdomains""") #reset database for testing
-    await cur.execute("""CREATE TABLE IF NOT EXISTS subdomains (
-                domain TEXT NOT NULL, 
-                should_search BOOLEAN NOT NULL CHECK (should_search IN (0,1)),
-                PRIMARY KEY (domain)
-                ) """)
-
-    await cur.execute("""DROP TABLE IF EXISTS errors""") #reset database for testing
-    await cur.execute("""CREATE TABLE IF NOT EXISTS errors 
-                (source TEXT NOT NULL, 
-                target TEXT NOT NULL,
-                error TEXT,
-                updated_at TEXT,
-                CONSTRAINT prim_key PRIMARY KEY (source, target) 
-                )""")
     visited = set()
     #domains = set(['https://www.uia.no', 'https://cair.uia.no', 'https://home.uia.no', 'https://kompetansetorget.uia.no', 'https://icnp.uia.no', 'http://friluft.uia.no', 'https://passord.uia.no', 'https://windplan.uia.no', 'https://appsanywhere.uia.no', 'https://shift.uia.no', 'https://insitu.uia.no', 'https://lyingpen.uia.no', 'https://platinum.uia.no', 'https://dekomp.uia.no', 'https://naturblogg.uia.no', 'https://enters.uia.no', 'https://wisenet.uia.no', 'https://libguides.uia.no', 'http://ciem.uia.no'])  # await google_domain_search("uia.no")
     #await cur.executemany("INSERT INTO subdomains VALUES (?,?)",[(i,True) for i in domains])
-    await con.commit()
+    await con = aiosqlite.connect(DATABASE_NAME)
+    await cur = con.cursor()
     domains = set()
     try:
         async for (i,) in cur.execute("SELECT domain FROM subdomains where should_search=1"):
@@ -127,7 +112,7 @@ async def main() -> None:
         domains = set(filter(lambda x: data[x], data.keys()))
     print("starting")
     print(domains)
-    a,b = await asyncio.wait([search_domain(domain,visited) for domain in domains],return_when=asyncio.ALL_COMPLETED)
+    a,b = await asyncio.wait([search_domain(domain, visited) for domain in domains],return_when=asyncio.ALL_COMPLETED)
 
 if __name__ == "__main__":
         #asyncio.run(main())

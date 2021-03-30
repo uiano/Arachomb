@@ -1,9 +1,11 @@
 import json
 import sqlite3
+import argparse
+import os
 
-#with open("config.json") as file:
-#    data = json.loads(file.read())
-#domains = set(filter(lambda x: data[x], data.keys()))
+
+parser = argparse.ArgumentParser(description="The Arachomb link checker")
+
 
 def suggestion(code):
     if code == "404":
@@ -16,7 +18,28 @@ def suggestion(code):
 
 con = sqlite3.connect("data.db")
 cur = con.cursor()
-print("finding stuff")
+#await cur.execute("""DROP TABLE IF EXISTS subdomains""")  # Reset database for testing
+cur.execute("""CREATE TABLE IF NOT EXISTS subdomains (
+            domain TEXT NOT NULL, 
+            should_search BOOLEAN NOT NULL CHECK (should_search IN (0,1)),
+            PRIMARY KEY (domain)
+            ) """)
+
+cur.execute("""DROP TABLE IF EXISTS errors""")  # Reset database for testing
+cur.execute("""CREATE TABLE IF NOT EXISTS errors 
+            (source TEXT NOT NULL, 
+            target TEXT NOT NULL,
+            error TEXT,
+            updated_at TEXT,
+            CONSTRAINT prim_key PRIMARY KEY (source, target) 
+            )""")
+con.commit()
+
+
+# os.system("crawler.py")
+# Use subprocess.Popen instead?  Needs research
+
+print("Fetching error logs from database...")
 for error, source, target, timestamp in cur.execute(f"SELECT error, source, target, updated_at FROM errors ORDER BY source").fetchall():
     print(f"""*****************\nWe found an error in {source}, in the link to 
         {target}\n\n
