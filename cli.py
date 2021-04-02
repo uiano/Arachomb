@@ -9,7 +9,7 @@ parser.add_argument("-c", "--code", type=int,
         help="filter errors by the given error code")
 parser.add_argument("-s", "--subdomain", type=str,
         help="filter errors by the given subdomain")
-parser.add_argument("--add_subdomain", type=str,
+parser.add_argument("--add_subdomain", nargs="+", type=str,
         help="adds the specified subdomain to the database")
 parser.add_argument("-i", "--init", action="store_true", default=False,
         help="reset the database")
@@ -35,7 +35,8 @@ cur.execute("""CREATE TABLE IF NOT EXISTS subdomains (
             PRIMARY KEY (domain)
             ) """)
 
-cur.execute("""DROP TABLE IF EXISTS errors""")  # Reset database for testing
+if args.init:
+    cur.execute("""DROP TABLE IF EXISTS errors""")  # Reset database for testing
 cur.execute("""CREATE TABLE IF NOT EXISTS errors 
             (source TEXT NOT NULL, 
             target TEXT NOT NULL,
@@ -43,6 +44,10 @@ cur.execute("""CREATE TABLE IF NOT EXISTS errors
             updated_at TEXT,
             CONSTRAINT prim_key PRIMARY KEY (source, target) 
             )""")
+
+if args.add_subdomain:
+    for subdomain in args.add_subdomain:
+        cur.execute("""INSERT INTO subdomains VALUES (?, 1)""", (subdomain))
 con.commit()
 
 
@@ -50,6 +55,8 @@ con.commit()
 # Use subprocess.Popen instead?  Needs research
 
 print("Fetching error logs from database...")
+#if args.code or args.subdomain:
+#    for error, source, target, timestamp in cur.execute(f"SELECT error, source, target, updated_at FROM errors WHERE error='{args.code}'"):
 for error, source, target, timestamp in cur.execute(f"SELECT error, source, target, updated_at FROM errors ORDER BY source").fetchall():
     print(f"""*****************\nWe found an error in {source}, in the link to 
         {target}\n\n
