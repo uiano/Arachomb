@@ -5,7 +5,17 @@ import os
 
 
 parser = argparse.ArgumentParser(description="The Arachomb link checker")
+parser.add_argument("-c", "--code", type=int,
+        help="filter errors by the given error code")
+parser.add_argument("-s", "--subdomain", type=str,
+        help="filter errors by the given subdomain")
+parser.add_argument("--add_subdomain", type=str,
+        help="adds the specified subdomain to the database")
+parser.add_argument("-i", "--init", action="store_true", default=False,
+        help="reset the database")
 
+args = parser.parse_args()
+print(args.code, args.subdomain, args.add_subdomain, args.init)
 
 def suggestion(code):
     if code == "404":
