@@ -22,7 +22,7 @@ cur = con.cursor()
 cur.execute("""CREATE TABLE IF NOT EXISTS subdomains (
             domain TEXT NOT NULL, 
             should_search BOOLEAN NOT NULL CHECK (should_search IN (0,1)),
-            PRIMARY KEY (domain)
+            PRIMARY KEY (domain) ON CONFLICT IGNORE
             ) """)
 
 cur.execute("""DROP TABLE IF EXISTS errors""")  # Reset database for testing
@@ -31,7 +31,7 @@ cur.execute("""CREATE TABLE IF NOT EXISTS errors
             target TEXT NOT NULL,
             error TEXT,
             updated_at TEXT,
-            CONSTRAINT prim_key PRIMARY KEY (source, target) 
+            CONSTRAINT prim_key PRIMARY KEY (source, target) ON CONFLICT REPLACE
             )""")
 con.commit()
 
