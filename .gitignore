@@ -1,5 +1,6 @@
 *.swp
 */venv
+/venv
 /node_modules
 /.pnp
 .pnp.js
@@ -11,6 +12,8 @@
 /build
 
 # misc
+data.db
+debug.log
 .DS_Store
 .env.local
 .env.development.local
