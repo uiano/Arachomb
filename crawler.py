@@ -48,6 +48,7 @@ async def search_domain(domain: str, visited: Set[str]) -> None:
         to_search = set([resp])
         while to_search:
             current = to_search.pop()
+            print(f"searching {current if type(current)==str else current.url}")
 
             # Get all the URLs in the current page
             text = soup.BeautifulSoup(current.text, "html.parser")
@@ -99,11 +100,11 @@ async def main() -> None:
     visited = set()
     #domains = set(['https://www.uia.no', 'https://cair.uia.no', 'https://home.uia.no', 'https://kompetansetorget.uia.no', 'https://icnp.uia.no', 'http://friluft.uia.no', 'https://passord.uia.no', 'https://windplan.uia.no', 'https://appsanywhere.uia.no', 'https://shift.uia.no', 'https://insitu.uia.no', 'https://lyingpen.uia.no', 'https://platinum.uia.no', 'https://dekomp.uia.no', 'https://naturblogg.uia.no', 'https://enters.uia.no', 'https://wisenet.uia.no', 'https://libguides.uia.no', 'http://ciem.uia.no'])  # await google_domain_search("uia.no")
     #await cur.executemany("INSERT INTO subdomains VALUES (?,?)",[(i,True) for i in domains])
-    await con = aiosqlite.connect(DATABASE_NAME)
-    await cur = con.cursor()
+    con = await aiosqlite.connect(DATABASE_NAME)
+    cur = await con.cursor()
     domains = set()
     try:
-        async for (i,) in cur.execute("SELECT domain FROM subdomains where should_search=1"):
+        for (i,) in await cur.execute("SELECT domain FROM subdomains where should_search=1"):
             print(i)
             domains.add(i)
     except:
