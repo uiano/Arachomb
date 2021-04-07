@@ -68,7 +68,7 @@ async def search_domain(domain: str, visited: Set[str]) -> None:
                     resp = await client.get(full_url)
                     await asyncio.sleep(0.5)
                     if 200 <= resp.status_code < 300 or resp.status_code == 301 or resp.status_code == 302:
-                        if ".js" not in full_url and "uia.no" in resp.url.host:
+                        if not full_url.endswith(".js") and resp.url.host.endswith("uia.no"):
                             to_search.add(resp)
 
                         logging.debug(f"******************\n   {full_url}\n   {url}\nIn {str(current.url)}\n{resp.status_code}")
