@@ -24,7 +24,7 @@ def suggestion(code):
         return "make sure the resource is publically available.  If this is intentional, ignore this error."
     elif code == "405":
         return "double check that the URL is spelled correctly, as the page only allows certain non-GET requests, so it won't appear properly in a browser."
-    return "figure out what kind of error this is, because we do not know."
+    return "tell us where you got this error, because that should not happen."
 
 con = sqlite3.connect("data.db")
 cur = con.cursor()
