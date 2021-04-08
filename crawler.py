@@ -48,7 +48,7 @@ async def search_domain(domain: str, visited: Set[str]) -> None:
         to_search = set([resp])
         while to_search:
             current = to_search.pop()
-            print(f"searching {current if type(current)==str else current.url}")
+            #print(f"searching {current if type(current)==str else current.url}")
 
             # Get all the URLs in the current page
             text = soup.BeautifulSoup(current.text, "html.parser")
@@ -67,8 +67,9 @@ async def search_domain(domain: str, visited: Set[str]) -> None:
                     full_url = handle_url(str(url), current)
                     resp = await client.get(full_url)
                     await asyncio.sleep(0.5)
+
                     if 200 <= resp.status_code < 300 or resp.status_code == 301 or resp.status_code == 302:
-                        if not full_url.endswith(".js") and resp.url.host.endswith("uia.no"):
+                        if not ".js" in full_url and resp.url.host.endswith("uia.no"):
                             to_search.add(resp)
 
                         logging.debug(f"******************\n   {full_url}\n   {url}\nIn {str(current.url)}\n{resp.status_code}")
