@@ -40,14 +40,14 @@ def handle_url(url: str, current) -> str:
         return "http" + https + "://" + current.url.host + "/" + url
 
 
-async def search_domain(domain: str, visited: Set[str]) -> None:
-    print(f"searching {domain}")
-    async with httpx.AsyncClient(timeout=30) as client, aiosqlite.connect(DATABASE_NAME) as con:
-        cur = await con.cursor()
+async def search_domain(domain: str, visited: Set[str], database_queue) -> None:
+    print(f"{visited.work_counter} started on {domain}")
+    async with httpx.AsyncClient(timeout=30) as client:
         resp = await client.get(domain)
         to_search = set([resp])
         while to_search:
             current = to_search.pop()
+            print(f"searching {current.url}")
 
             # Get all the URLs in the current page
             text = soup.BeautifulSoup(current.text, "html.parser")
@@ -75,95 +75,46 @@ async def search_domain(domain: str, visited: Set[str]) -> None:
                             f"******************\n   {full_url}\n   {url}\nIn {str(current.url)}\n{resp.status_code}")
 
                     else:  # Got an HTTP error
-                        await cur.execute("""INSERT INTO errors VALUES (?,?,?,?)""", (str(current.url), full_url, str(resp.status_code), str(datetime.date.today())))
+                        await database_queue.put((str(current.url), full_url, str(resp.status_code), str(datetime.datetime.today())))
+                        # await cur.execute("""INSERT INTO errors VALUES (?,?,?,?)""", (str(current.url), full_url, str(resp.status_code), str(datetime.date.today())))
                         # await cur.commit()
-                        await con.commit()
+                        # await con.commit()
                         logging.error(
                             f"******************\n   {full_url}\n   {url}\nIn {str(current.url)}\n{resp.status_code}")
 
                 except httpx.ConnectError as e:  # "Tidsavbruddsperioden for semaforen har utløpt"
-                    await cur.execute("""INSERT INTO errors VALUES (?,?,?,?)""", (str(current.url), full_url, str(e.args), str(datetime.date.today())))
-                    # await cur.commit()
-                    await con.commit()
-                    logging.error(
-                        f"******************\n   {full_url}\n   {url}\nIn {str(current.url)}\n{e.args}")
-
-                except aiosqlite.IntegrityError as e:  # Unique constraint failed
-                    # Some page has the same faulty link to the same place??  Ignore
-                    logging.error(
-                        f"******************\n   {full_url}\n   {url}\nIn {str(current.url)}\nThis error apparently already exists")
-                    pass
-
-
-async def search_worker(work_queue, result_queue, database_queue) -> None:
-    async with httpx.AsyncClient(timeout=30) as client:
-        while True:
-            current = await work_queue.get()
-            if type(current) is str:  # the starting input is just a url to the different subdomains
-                current = await client.get(current)
-            print(f"searching {current.url}")
-            text = soup.BeautifulSoup(current.text, "html.parser")
-            hrefs = {i.get("href") for i in text.find_all(
-                href=True)}
-            srcs = {i.get("src") for i in text.find_all(
-                src=True)}
-            for url in hrefs | srcs:
-                if any(url.startswith(i) for i in ["mailto:", "tel:", "javascript:", "#content-middle", "about:blank"]):
-                    continue
-                if url == "#" or "linkedin" in url:
-                    continue
-                try:
-                    full_url = handle_url(str(url), current)
-                    resp = await client.get(full_url)
-                    await asyncio.sleep(0.5)
-                    if 200 <= resp.status_code < 300 or resp.status_code == 301 or resp.status_code == 302:
-                        # TODO: replace the "thing" in url with something like url.ends_with("thing")
-                        if ".js" not in full_url and "uia.no" in resp.url.host:
-                            # to_search.add(resp)
-                            await result_queue.put(resp)
-                        logging.debug(
-                            f"******************\n   {full_url}\n   {url}\nIn {str(current.url)}\n{resp.status_code}")
-                    else:  # Got an HTTP error
-                        await database_queue.put((current.url, full_url, resp.status_code, datetime.date.today()))
-                        logging.debug(
-                            f"******************\n   {full_url}\n   {url}\nIn {str(current.url)}\n{resp.status_code}")
-                        # await cur.execute("""INSERT INTO errors VALUES (?,?,?,?)""", (str(current.url), full_url, str(resp.status_code), str(datetime.date.today())))
-                        # await con.commit()
-
-                except httpx.ConnectError as e:
-                    await database_queue.put((current.url, full_url, resp.status_code, datetime.date.today()))
+                    await database_queue.put((str(current.url), full_url, str(resp.status_code), str(datetime.datetime.today())))
                     # await cur.execute("""INSERT INTO errors VALUES (?,?,?,?)""", (str(current.url), full_url, str(e.args), str(datetime.date.today())))
+                    # await cur.commit()
                     # await con.commit()
-                    logging.error(
-                        f"******************\n   {full_url}\n   {url}\nIn {str(current.url)}\n{e.args}")
+                    logging.error(f"******************\n   {full_url}\n   {url}\nIn {str(current.url)}\n{e.args}")
 
                 except aiosqlite.IntegrityError as e:  # Unique constraint failed
                     # Some page has the same faulty link to the same place??  Ignore
-                    logging.error(
-                        f"******************\n   {full_url}\n   {url}\nIn {str(current.url)}\nThis error apparently already exists")
+                    logging.error( f"******************\n   {full_url}\n   {url}\nIn {str(current.url)}\nThis error apparently already exists")
                     pass
-            work_queue.task_done()
+        print(f"{visited.work_counter} is done with {domain}")
+        visited.work_counter -= 1
 
 
 async def database_worker(data_queue, insert_length) -> None:
-    import sqlite3
-    with sqlite3.connect(DATABASE_NAME) as con:
-        cursor = con.cursor()
+    async with aiosqlite.connect(DATABASE_NAME) as con:
+        cursor = await con.cursor()
         stored_data = []
         while True:
             await asyncio.sleep(1)
             # (source,target,code,timestamp) = await data_queue.get()
-            (source,target,code,timestamp) = await data_queue.get()
-            data = (str(source),str(target),code,timestamp)
+            data = await data_queue.get()
             print(f"data={data}")
             stored_data.append(data)
             if len(stored_data) >= insert_length:
-                cursor.executemany(
+                await cursor.executemany(
                     "INSERT INTO errors VALUES (?,?,?,?)", stored_data)
                 print("stored data")
                 stored_data = []
-                con.commit()
+                await con.commit()
             data_queue.task_done()
+        await cursor.close()
 
 
 DATABASE_NAME = "data.db"
@@ -176,7 +127,7 @@ async def main() -> None:
     # await cur.executemany("INSERT INTO subdomains VALUES (?,?)",[(i,True) for i in domains])
     con = await aiosqlite.connect(DATABASE_NAME)
     cur = await con.cursor()
-    #domains = set()
+    # domains = set()
     try:
         for (i,) in await cur.execute("SELECT domain FROM subdomains where should_search=1"):
             print(i)
@@ -185,36 +136,39 @@ async def main() -> None:
         with open("config.json") as file:
             data = json.loads(file.read())
         domains = set(filter(lambda x: data[x], data.keys()))
+    await cur.close()
     # _ = await asyncio.wait([search_domain(domain, visited) for domain in domains],return_when=asyncio.ALL_COMPLETED)
-    worker_amount = 6
-    task_queue = asyncio.Queue()
+    # worker_amount = 6
+    # task_queue = asyncio.Queue()
     insert_length = 1
     database_queue = asyncio.Queue()
-    result_queue = asyncio.Queue()
+    # result_queue = asyncio.Queue()
     data_worker = asyncio.create_task(
         database_worker(database_queue, insert_length))
     workers = []
-    for _ in range(worker_amount):
-        workers.append(asyncio.create_task(search_worker(
-            task_queue, result_queue, database_queue)))
-
+    # for _ in range(worker_amount):
+        # workers.append(asyncio.create_task(search_worker(
+            # task_queue, result_queue, database_queue)))
+    for domain in domains:
+        workers.append(asyncio.create_task(search_domain(domain,visited,database_queue)))
     # send tasks
-    while bool(domains) or not result_queue.empty() or not task_queue.empty():
-        if bool(domains):
-            domain = domains.pop()
-            await task_queue.put(domain)
-            print(f"inserted {domain if type(domain)==str else domain.url} from set")
-        if not result_queue.empty():
-            domain = await result_queue.get()
-            if domain not in domains and domain not in visited:
-                await task_queue.put(domain)
-                print(f"inserted {domain if type(domain)==str else domain.url} from queue")
-                visited.add(domain)
-            result_queue.task_done()
-        await asyncio.sleep(1)
+    # while bool(domains) or not result_queue.empty() or not task_queue.empty():
+        # if bool(domains):
+            # domain = domains.pop()
+            # await task_queue.put(domain)
+            # print(f"inserted {domain if type(domain)==str else domain.url} from set")
+        # if not result_queue.empty():
+            # domain = await result_queue.get()
+            # if domain not in domains and domain not in visited:
+                # await task_queue.put(domain)
+                # print(f"inserted {domain if type(domain)==str else domain.url} from queue")
+                # visited.add(domain)
+            # result_queue.task_done()
+        # await asyncio.sleep(1)
     # done
-    asyncio.gather(*workers, return_exceptions=True)
+    await asyncio.gather(*workers, return_exceptions=True)
     await database_queue.join()
+    await data_worker
 
 
 if __name__ == "__main__":
