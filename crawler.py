@@ -50,6 +50,9 @@ async def search_domain(domain: str, visited: Set[str]) -> None:
             current = to_search.pop()
             #print(f"searching {current if type(current)==str else current.url}")
 
+            if not current.url.host.endswith("uia.no"):
+                pass
+
             # Get all the URLs in the current page
             text = soup.BeautifulSoup(current.text, "html.parser")
             hrefs = {i.get("href") for i in text.find_all(
@@ -59,7 +62,7 @@ async def search_domain(domain: str, visited: Set[str]) -> None:
             
             # Loop over the URLs in the current page
             for url in hrefs | srcs:
-                if any(url.startswith(i) for i in ["mailto:", "tel:", "javascript:", "#content-middle", "about:blank"]):
+                if any(url.startswith(i) for i in ["mailto:", "tel:", "javascript:", "#content-middle", "about:blank", "skype:"]):
                     continue
                 if url == "#" or "linkedin" in url: continue
 
@@ -67,6 +70,9 @@ async def search_domain(domain: str, visited: Set[str]) -> None:
                     full_url = handle_url(str(url), current)
                     resp = await client.get(full_url)
                     await asyncio.sleep(0.5)
+
+                    if resp.status_code == 403:
+                        pass
 
                     if 200 <= resp.status_code < 300 or resp.status_code == 301 or resp.status_code == 302:
                         if not ".js" in full_url and resp.url.host.endswith("uia.no"):
