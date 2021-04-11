@@ -41,7 +41,6 @@ def handle_url(url: str, current) -> str:
 
 
 async def search_domain(domain: str, visited: Set[str], database_queue) -> None:
-    print(f"{visited.work_counter} started on {domain}")
     async with httpx.AsyncClient(timeout=30) as client:
         resp = await client.get(domain)
         to_search = set([resp])
@@ -93,15 +92,15 @@ async def search_domain(domain: str, visited: Set[str], database_queue) -> None:
                     # Some page has the same faulty link to the same place??  Ignore
                     logging.error( f"******************\n   {full_url}\n   {url}\nIn {str(current.url)}\nThis error apparently already exists")
                     pass
-        print(f"{visited.work_counter} is done with {domain}")
-        visited.work_counter -= 1
 
 
 async def database_worker(data_queue, insert_length) -> None:
+    print("starting database worker")
     async with aiosqlite.connect(DATABASE_NAME) as con:
         cursor = await con.cursor()
         stored_data = []
         while True:
+            print("waiting for data")
             await asyncio.sleep(1)
             # (source,target,code,timestamp) = await data_queue.get()
             data = await data_queue.get()
@@ -167,6 +166,7 @@ async def main() -> None:
         # await asyncio.sleep(1)
     # done
     await asyncio.gather(*workers, return_exceptions=True)
+    print("waiting for data to complete")
     await database_queue.join()
     await data_worker
 
