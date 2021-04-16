@@ -24,6 +24,8 @@ def suggestion(code):
         return "make sure the resource is publically available.  If this is intentional, ignore this error."
     elif code == "405":
         return "double check that the URL is spelled correctly, as the page only allows certain non-GET requests, so it won't appear properly in a browser."
+    elif code == "557":
+        return "give the website an up-to-date SSL certificate, since it currently does not have one."
     return "figure out what kind of error this is, because we do not know."
 
 con = sqlite3.connect("data.db")
