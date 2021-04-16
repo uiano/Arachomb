@@ -80,13 +80,27 @@ con.commit()
 
 print("Fetching error logs from database...")
 
-either_filter = bool(args.code or args.subdomain)
-both_filters = bool(args.code and args.subdomain)
-#if args.code or args.subdomain:
-#    for error, source, target, timestamp in cur.execute(f"SELECT error, source, target, updated_at FROM errors WHERE error='{args.code}'"):
-for error, source, target, timestamp in cur.execute("SELECT error, source, target, updated_at FROM errors " + "WHERE "*either_filter + f"error=\"{args.code}\" "*bool(args.code) + "AND "*both_filters + f"source=\"{args.subdomain}\" "*bool(args.subdomain) + "ORDER BY source").fetchall():
-# for error, source, target, timestamp in cur.execute(f"SELECT error, source, target, updated_at FROM errors ORDER BY source").fetchall():
-    print(f"""*****************\nWe found an error in {source}, in the link to 
+def error_output(error, source, target, timestamp):
+    return f"""*****************\nWe found an error in {source}, in the link to 
         {target}\n\n
         Getting the link returned a {error} error. Try {suggestion(error)}\n\n
-        Last checked at {timestamp}""")
+        Last checked at {timestamp}"""
+
+
+if args.code and args.subdomain:
+    for error, source, target, timestamp in cur.execute(f"SELECT error, source, target, updated_at FROM errors WHERE error=\"{args.code}\" AND source=\"{args.subdomain}\" ORDER BY source").fetchall():
+        print(error_output(error, source, target, timestamp))
+
+elif args.code:
+    for error, source, target, timestamp in cur.execute(f"SELECT error, source, target, updated_at FROM errors WHERE error=\"{args.code}\" ORDER BY source").fetchall():
+        print(error_output(error, source, target, timestamp))
+
+elif args.subdomain:
+    for error, source, target, timestamp in cur.execute(f"SELECT error, source, target, updated_at FROM errors WHERE source=\"{args.subdomain}\" ORDER BY source").fetchall():
+    for error, source, target, timestamp in cur.execute(""):
+        print(error_output(error, source, target, timestamp))
+
+else:
+    for error, source, target, timestamp in cur.execute("SELECT error, source, target, updated_at FROM errors ORDER BY source").fetchall():
+        print(error_output(error, source, target, timestamp))
+
