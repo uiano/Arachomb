@@ -15,6 +15,7 @@ def remove_subdomain(name):
     cur.execute("""DELETE FROM subdomains WHERE domain=?""", (name))
     con.commit()
 
+
 parser = argparse.ArgumentParser(description="The Arachomb link checker")
 subparsers = parser.add_subparsers()
 
@@ -27,16 +28,17 @@ subcommand_remove.add_argument('name', type=str)
 subcommand_remove.set_defaults(func=remove_subdomain)
 
 parser.add_argument("-c", "--code", type=int,
-        help="filter errors by the given error code")
+                    help="filter errors by the given error code")
 parser.add_argument("-s", "--subdomain", type=str,
-        help="filter errors by the given subdomain")
+                    help="filter errors by the given subdomain")
 parser.add_argument("--add_subdomain", nargs="+", type=str,
-        help="adds the specified subdomain to the database")
+                    help="adds the specified subdomain to the database")
 parser.add_argument("-i", "--init", action="store_true", default=False,
-        help="reset the database")
+                    help="reset the database")
 
 args = parser.parse_args()
 print(args.code, args.subdomain, args.add_subdomain, args.init)
+
 
 def suggestion(code):
     if code == "404":
@@ -49,10 +51,11 @@ def suggestion(code):
         return "give the website an up-to-date SSL certificate, since it currently does not have one."
     return "figure out what kind of error this is, because we do not know."
 
+
 con = sqlite3.connect("data.db")
 cur = con.cursor()
 
-#await cur.execute("""DROP TABLE IF EXISTS subdomains""")  # Reset database for testing
+# await cur.execute("""DROP TABLE IF EXISTS subdomains""")  # Reset database for testing
 cur.execute("""CREATE TABLE IF NOT EXISTS subdomains (
             domain TEXT NOT NULL, 
             should_search BOOLEAN NOT NULL CHECK (should_search IN (0,1)),
@@ -70,7 +73,8 @@ cur.execute("""CREATE TABLE IF NOT EXISTS errors
             )""")
 
 if args.add_subdomain:
-    cur.executemany("""INSERT INTO subdomains VALUES (?, 1)""", (args.add_subdomain))
+    cur.executemany("""INSERT INTO subdomains VALUES (?, 1)""",
+                    (args.add_subdomain))
 con.commit()
 
 
@@ -78,6 +82,7 @@ con.commit()
 # Use subprocess.Popen instead?  Needs research
 
 print("Fetching error logs from database...")
+
 
 def error_output(error, source, target, timestamp):
     return f"""*****************\nWe found an error in {source}, in the link to 
@@ -102,4 +107,3 @@ elif args.subdomain:
 else:
     for error, source, target, timestamp in cur.execute("SELECT error, source, target, updated_at FROM errors ORDER BY source").fetchall():
         print(error_output(error, source, target, timestamp))
-
