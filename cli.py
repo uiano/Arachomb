@@ -38,7 +38,6 @@ parser.add_argument("-i", "--init", action="store_true", default=False,
 args = parser.parse_args()
 print(args.code, args.subdomain, args.add_subdomain, args.init)
 
-
 def suggestion(code):
     if code == "404":
         return "make sure the URL is spelled correctly, and that the resource exists."
@@ -46,8 +45,9 @@ def suggestion(code):
         return "make sure the resource is publically available.  If this is intentional, ignore this error."
     elif code == "405":
         return "double check that the URL is spelled correctly, as the page only allows certain non-GET requests, so it won't appear properly in a browser."
-    return "tell us where you got this error, because that should not happen."
-
+    elif code == "557":
+        return "give the website an up-to-date SSL certificate, since it currently does not have one."
+    return "figure out what kind of error this is, because we do not know."
 
 con = sqlite3.connect("data.db")
 cur = con.cursor()
@@ -70,8 +70,7 @@ cur.execute("""CREATE TABLE IF NOT EXISTS errors
             )""")
 
 if args.add_subdomain:
-    for subdomain in args.add_subdomain:
-        cur.execute("""INSERT INTO subdomains VALUES (?, 1)""", (subdomain))
+    cur.executemany("""INSERT INTO subdomains VALUES (?, 1)""", (args.add_subdomain))
 con.commit()
 
 
