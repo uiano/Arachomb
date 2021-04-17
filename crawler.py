@@ -25,19 +25,28 @@ async def google_domain_search(domain: str) -> Set[str]:
     return result
 
 
-def handle_url(url: str, current) -> str:
+def handle_url(url: str, current) -> (str, str):
     https = 's' if "https" in str(current.url) else ''
 
     if url.startswith("http"):
-        return url
+        if https:
+            return (url, url.replace("s", '', 1))
+        else:
+            return (url[:4] + 's' + url[4:], url)
+
     elif url.startswith("#"):
-        return str(current.url) + url
+        output = (str(current.url) + url, str(current.url).replace('s', '', 1) + url)
+        if str(current.url)[4].toLower() == 's':
+            return output
+        else:
+            return (output[1], output[0])
+
     elif url.startswith("//"):
-        return "http" + https + ":" + url
+        return ("https:" + url, "http:" + url)
     elif url.startswith("/"):
-        return "http" + https + "://" + current.url.host + url
+        return ("https://" + current.url.host + url, "http://" + current.url.host + url)
     else:
-        return "http" + https + "://" + current.url.host + "/" + url
+        return ("https://" + current.url.host + "/" + url, "http://" + current.url.host + "/" + url)
 
 
 async def search_domain(domain: str, visited: Set[str], database_queue) -> None:
@@ -71,23 +80,36 @@ async def search_domain(domain: str, visited: Set[str], database_queue) -> None:
 
                 try:  # getting the content of the URL we're checking currently
                     print(f"checking {url}")
-                    full_url = handle_url(str(url), current)
-                    resp = await client.get(full_url)
+                    full_urls = handle_url(str(url), current)
+                    resp = await client.get(full_urls[0])
                     await asyncio.sleep(0.5)
                     if 200 <= resp.status_code < 300 or resp.status_code == 301 or resp.status_code == 302:
-                        if ".js" not in full_url and "uia.no" in resp.url.host:
+                        if ".js" not in full_urls[0] and "uia.no" in resp.url.host:
                             to_search.add(resp)
 
                         logging.debug(
-                            f"******************\n   {full_url}\n   {url}\nIn {str(current.url)}\n{resp.status_code}")
+                            f"******************\n   {full_urls[0]}\n   {url}\nIn {str(current.url)}\n{resp.status_code}")
 
                     else:  # Got an HTTP error
-                        await database_queue.put((str(current.url), full_url, str(resp.status_code), str(datetime.datetime.today())))
+                        await database_queue.put((str(current.url), full_urls[0], str(resp.status_code), str(datetime.datetime.today())))
                         # await cur.execute("""INSERT INTO errors VALUES (?,?,?,?)""", (str(current.url), full_url, str(resp.status_code), str(datetime.date.today())))
                         # await cur.commit()
                         # await con.commit()
                         logging.error(
-                            f"******************\n   {full_url}\n   {url}\nIn {str(current.url)}\n{resp.status_code}")
+                            f"******************\n   {full_urls[0]}\n   {url}\nIn {str(current.url)}\n{resp.status_code}")
+
+                except httpx.ConnectError as e:  # SSL errors and such?
+                    if not e.args[0].startswith("[SSL: WRONG_VERSION_NUMBER]"):
+                        continue
+
+                    try:
+                        resp_https = await client.get(full_urls[1])
+                    except Exception as e:
+                        print(e.args)
+                    else:
+                        if 200 <= resp_https.status_code < 300 or resp_https.status_code == 301 or resp_https.status_code == 302:
+                            await database_queue.put((str(current.url), full_urls[1], "557", str(datetime.datetime.today())))
+                            logging.error(f"******************\n   {full_urls[0]}\n   {url}\nIn {str(current.url)}\n{e.args}")
 
                 except httpx.ConnectTimeout as e:
                     #TODO: what do we do on a timeout
@@ -100,7 +122,8 @@ async def search_domain(domain: str, visited: Set[str], database_queue) -> None:
                     # await cur.execute("""INSERT INTO errors VALUES (?,?,?,?)""", (str(current.url), full_url, str(e.args), str(datetime.date.today())))
                     # await cur.commit()
                     # await con.commit()
-                    logging.error(f"******************\n   {full_url}\n   {url}\nIn {str(current.url)}\n{e.args}")
+                    logging.error(f"******************\n   {full_urls[0]}\n   {url}\nIn {str(current.url)}\n{e.args}")
+
 
 async def database_worker(data_queue, insert_length) -> None:
     print("starting database worker")
