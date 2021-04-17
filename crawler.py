@@ -50,6 +50,9 @@ async def search_domain(domain: str, visited: Set[str], database_queue) -> None:
         to_search = set([resp])
         while to_search:
             current = to_search.pop()
+            if str(current.url) in visited:
+                continue
+            visited.add(str(current.url))
             print(f"searching {current.url}")
 
             # Get all the URLs in the current page
@@ -61,13 +64,13 @@ async def search_domain(domain: str, visited: Set[str], database_queue) -> None:
 
             # Loop over the URLs in the current page
             for url in hrefs | srcs:
-                print(f"checking {url}")
                 if any(url.startswith(i) for i in ["mailto:", "tel:", "javascript:", "#content-middle", "about:blank"]):
                     continue
                 if url == "#" or "linkedin" in url:
                     continue
 
                 try:  # getting the content of the URL we're checking currently
+                    print(f"checking {url}")
                     full_url = handle_url(str(url), current)
                     resp = await client.get(full_url)
                     await asyncio.sleep(0.5)
@@ -86,6 +89,12 @@ async def search_domain(domain: str, visited: Set[str], database_queue) -> None:
                         logging.error(
                             f"******************\n   {full_url}\n   {url}\nIn {str(current.url)}\n{resp.status_code}")
 
+                except httpx.ConnectTimeout as e:
+                    #TODO: what do we do on a timeout
+                    pass
+                except httpx.TooManyRedirects:
+                    #TODO: edit redirect maximum?
+                    pass
                 except httpx.ConnectError as e:  # "Tidsavbruddsperioden for semaforen har utløpt"
                     await database_queue.put((str(current.url), full_url, str(resp.status_code), str(datetime.datetime.today())))
                     # await cur.execute("""INSERT INTO errors VALUES (?,?,?,?)""", (str(current.url), full_url, str(e.args), str(datetime.date.today())))
@@ -126,17 +135,18 @@ DATABASE_NAME = "data.db"
 
 async def main() -> None:
     visited = set()
-    domains = set(['https://www.uia.no', 'https://cair.uia.no', 'https://home.uia.no', 'https://kompetansetorget.uia.no', 'https://icnp.uia.no', 'http://friluft.uia.no', 'https://passord.uia.no', 'https://windplan.uia.no', 'https://appsanywhere.uia.no', 'https://shift.uia.no',
-                   'https://insitu.uia.no', 'https://lyingpen.uia.no', 'https://platinum.uia.no', 'https://dekomp.uia.no', 'https://naturblogg.uia.no', 'https://enters.uia.no', 'https://wisenet.uia.no', 'https://libguides.uia.no', 'http://ciem.uia.no'])  # await google_domain_search("uia.no")
+    #domains = set(['https://www.uia.no', 'https://cair.uia.no', 'https://home.uia.no', 'https://kompetansetorget.uia.no', 'https://icnp.uia.no', 'http://friluft.uia.no', 'https://passord.uia.no', 'https://windplan.uia.no', 'https://appsanywhere.uia.no', 'https://shift.uia.no', 'https://insitu.uia.no', 'https://lyingpen.uia.no', 'https://platinum.uia.no', 'https://dekomp.uia.no', 'https://naturblogg.uia.no', 'https://enters.uia.no', 'https://wisenet.uia.no', 'https://libguides.uia.no', 'http://ciem.uia.no'])  # await google_domain_search("uia.no")
     # await cur.executemany("INSERT INTO subdomains VALUES (?,?)",[(i,True) for i in domains])
     con = await aiosqlite.connect(DATABASE_NAME)
     cur = await con.cursor()
-    # domains = set()
+    domains = set()
     try:
-        for (i,) in await cur.execute("SELECT domain FROM subdomains where should_search=1"):
+        rows = await cur.execute("SELECT domain FROM subdomains where should_search=1")
+        for (i,) in await rows.fetchall():
             print(i)
             domains.add(i)
-    except:
+    except Exception as e:
+        print(e.args)
         with open("config.json") as file:
             data = json.loads(file.read())
         domains = set(filter(lambda x: data[x], data.keys()))
