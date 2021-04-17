@@ -49,6 +49,8 @@ def suggestion(code):
         return "double check that the URL is spelled correctly, as the page only allows certain non-GET requests, so it won't appear properly in a browser."
     elif code == "557":
         return "give the website an up-to-date SSL certificate, since it currently does not have one."
+    elif code == "5":
+        return "make sure you are using an up to date version of python. you are likely using python3.8 with a minor version 2 or lower while on windows, this has some bugs in async code that are fixed in the later releases"
     return "figure out what kind of error this is, because we do not know."
 
 
