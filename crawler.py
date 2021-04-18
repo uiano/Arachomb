@@ -99,7 +99,7 @@ async def search_domain(domain: str, visited: Set[str], database_queue) -> None:
                             f"******************\n   {full_urls[0]}\n   {url}\nIn {str(current.url)}\n{resp.status_code}")
 
                     else:  # Got an HTTP error
-                        await database_queue.put((str(current.url), full_urls[0], str(resp.status_code), str(datetime.datetime.today())))
+                        await database_queue.put((str(current.url), current.url.host, full_urls[0], str(resp.status_code), str(datetime.datetime.today())))
                         # await cur.execute("""INSERT INTO errors VALUES (?,?,?,?)""", (str(current.url), full_url, str(resp.status_code), str(datetime.date.today())))
                         # await cur.commit()
                         # await con.commit()
@@ -116,20 +116,23 @@ async def search_domain(domain: str, visited: Set[str], database_queue) -> None:
                         print(e.args)
                     else:
                         if 200 <= resp_https.status_code < 300 or resp_https.status_code == 301 or resp_https.status_code == 302:
-                            await database_queue.put((str(current.url), full_urls[1], "557", str(datetime.datetime.today())))
+                            await database_queue.put((str(current.url), current.url.host, full_urls[1], "557", str(datetime.datetime.today())))
                             logging.error(
                                 f"******************\n   {full_urls[0]}\n   {url}\nIn {str(current.url)}\n{e.args}")
 
                 except httpx.ConnectTimeout as e:
                     # TODO: what do we do on a timeout
-                    pass
+                    continue
+
                 except httpx.TooManyRedirects:
                     # TODO: edit redirect maximum?
-                    pass
+                    continue
+
                 except OSError:
-                    await database_queue.put((str(current.url), full_urls[1], "5", str(datetime.datetime.today())))
-                except httpx.ConnectError as e:  # "Tidsavbruddsperioden for semaforen har utløpt"
-                    await database_queue.put((str(current.url), full_url, str(resp.status_code), str(datetime.datetime.today())))
+                    await database_queue.put((str(current.url), current.url.host, full_urls[1], "5", str(datetime.datetime.today())))
+
+                except httpx.ConnectError as e:  # Semaphore error?
+                    await database_queue.put((str(current.url), current.url.host, full_urls[0], "0", str(datetime.datetime.today())))
                     # await cur.execute("""INSERT INTO errors VALUES (?,?,?,?)""", (str(current.url), full_url, str(e.args), str(datetime.date.today())))
                     # await cur.commit()
                     # await con.commit()
@@ -138,31 +141,31 @@ async def search_domain(domain: str, visited: Set[str], database_queue) -> None:
 
 
 async def database_worker(data_queue, insert_length) -> None:
-    print("starting database worker")
-    async with aiosqlite.connect(DATABASE_NAME) as con:
-        cursor = await con.cursor()
-        stored_data = []
-        try:
-            while True:
-                print("waiting for data")
-                await asyncio.sleep(1)
-                # (source,target,code,timestamp) = await data_queue.get()
-                data = await data_queue.get()
-                print(f"data={data}")
-                stored_data.append(data)
-                if len(stored_data) >= insert_length:
+    try:
+        async with aiosqlite.connect(DATABASE_NAME) as con:
+            cursor = await con.cursor()
+            stored_data = []
+            try:
+                while True:
+                    await asyncio.sleep(1)
+                    # (source,target,code,timestamp) = await data_queue.get()
+                    data = await data_queue.get()
+                    print(f"data={data}")
+                    stored_data.append(data)
+                    if len(stored_data) >= insert_length:
+                        await cursor.executemany(
+                            "INSERT INTO errors VALUES (?,?,?,?,?)", stored_data)
+                        stored_data = []
+                        await con.commit()
+                    data_queue.task_done()
+            except asyncio.CancelledError:
+                if len(stored_data) != 0:
                     await cursor.executemany(
-                        "INSERT INTO errors VALUES (?,?,?,?)", stored_data)
-                    print("stored data")
-                    stored_data = []
-                    await con.commit()
-                data_queue.task_done()
-        except asyncio.CancelledError:
-            if len(stored_data) != 0:
-                await cursor.executemany(
-                    "INSERT INTO errors VALUES (?,?,?,?)", stored_data)
-        finally:
-            await cursor.close()
+                        "INSERT INTO errors VALUES (?,?,?,?,?)", stored_data)
+            finally:
+                await cursor.close()
+    except Exception as e:
+        print(e.args)
 
 
 DATABASE_NAME = "data.db"
@@ -170,8 +173,7 @@ DATABASE_NAME = "data.db"
 
 async def main() -> None:
     visited = set()
-    # domains = set(['https://www.uia.no', 'https://cair.uia.no', 'https://home.uia.no', 'https://kompetansetorget.uia.no', 'https://icnp.uia.no', 'http://friluft.uia.no', 'https://passord.uia.no', 'https://windplan.uia.no', 'https://appsanywhere.uia.no', 'https://shift.uia.no', 'https://insitu.uia.no', 'https://lyingpen.uia.no', 'https://platinum.uia.no', 'https://dekomp.uia.no', 'https://naturblogg.uia.no', 'https://enters.uia.no', 'https://wisenet.uia.no', 'https://libguides.uia.no', 'http://ciem.uia.no'])  # await google_domain_search("uia.no")
-    # await cur.executemany("INSERT INTO subdomains VALUES (?,?)",[(i,True) for i in domains])
+    # domains = set(['https://www.uia.no', 'https://cair.uia.no', 'https://home.uia.no', 'https://kompetansetorget.uia.no', 'https://icnp.uia.no', 'http://friluft.uia.no', 'https://passord.uia.no', 'https://windplan.uia.no', 'https://appsanywhere.uia.no', 'https://shift.uia.no', 'https://insitu.uia.no', 'https://lyingpen.uia.no', 'https://platinum.uia.no', 'https://dekomp.uia.no', 'https://naturblogg.uia.no', 'https://enters.uia.no', 'https://wisenet.uia.no', 'https://libguides.uia.no', 'http://ciem.uia.no'])  
     con = await aiosqlite.connect(DATABASE_NAME)
     cur = await con.cursor()
     domains = set()
@@ -186,6 +188,9 @@ async def main() -> None:
             data = json.loads(file.read())
         domains = set(filter(lambda x: data[x], data.keys()))
     await cur.close()
+    if not domains:
+        print("No domains to search")
+        return
     # _ = await asyncio.wait([search_domain(domain, visited) for domain in domains],return_when=asyncio.ALL_COMPLETED)
     # worker_amount = 6
     # task_queue = asyncio.Queue()
@@ -196,6 +201,7 @@ async def main() -> None:
         database_worker(database_queue, insert_length))
     workers = []
 
+    print(domains)
     for domain in domains:
         workers.append(asyncio.create_task(search_domain(
             domain, visited, database_queue), name=domain))

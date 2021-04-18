@@ -1,31 +1,42 @@
+from typing import Set
 import json
 import sqlite3
 import argparse
+import googlesearch as google
 import os
 
 
-def add_subdomain(name):
-    print("adding subdomain now")
-    cur.execute("""INSERT INTO subdomains VALUES (?, ?)""", (name, 1))
-    con.commit()
+def google_domain_search(domain: str) -> Set[str]:
+    print(f"expanding {domain}")
+    result = set((get_base_url(i) for i in google.search(
+        f"site:{domain}", tld="no", lang="no", pause=5) if domain in i))
+    return result
+
+def get_base_url(url: str) -> str:
+    return "/".join(url.split("/")[:3])
+
+#def add_subdomain(name):
+#    print("adding subdomain now")
+#    cur.execute("""INSERT INTO subdomains VALUES (?, ?)""", (name, 1))
+#    con.commit()
 
 
-def remove_subdomain(name):
-    print("removing subdomain now")
-    cur.execute("""DELETE FROM subdomains WHERE domain=?""", (name))
-    con.commit()
+#def remove_subdomain(name):
+#    print("removing subdomain now")
+#    cur.execute("""DELETE FROM subdomains WHERE domain=?""", (name))
+#    con.commit()
 
 
 parser = argparse.ArgumentParser(description="The Arachomb link checker")
-subparsers = parser.add_subparsers()
+#subparsers = parser.add_subparsers()
 
-subcommand_add = subparsers.add_parser('add')
-subcommand_add.add_argument('name', type=str)
-subcommand_add.set_defaults(func=add_subdomain)
+#subcommand_add = subparsers.add_parser('add')
+#subcommand_add.add_argument('name', type=str)
+#subcommand_add.set_defaults(func=add_subdomain)
 
-subcommand_remove = subparsers.add_parser('remove')
-subcommand_remove.add_argument('name', type=str)
-subcommand_remove.set_defaults(func=remove_subdomain)
+#subcommand_remove = subparsers.add_parser('remove')
+#subcommand_remove.add_argument('name', type=str)
+#subcommand_remove.set_defaults(func=remove_subdomain)
 
 parser.add_argument("-c", "--code", type=int,
                     help="filter errors by the given error code")
@@ -35,9 +46,11 @@ parser.add_argument("--add_subdomain", nargs="+", type=str,
                     help="adds the specified subdomain to the database")
 parser.add_argument("-i", "--init", action="store_true", default=False,
                     help="reset the database")
+parser.add_argument("-d", "--disable", nargs="+", type=str,
+                    help="skips the selected subdomains or \"all\" when scanning")
+# -d needs for the cli to store a list of the relevant subdomains
 
 args = parser.parse_args()
-print(args.code, args.subdomain, args.add_subdomain, args.init)
 
 
 def suggestion(code):
@@ -64,10 +77,15 @@ cur.execute("""CREATE TABLE IF NOT EXISTS subdomains (
             PRIMARY KEY (domain) ON CONFLICT IGNORE
             ) """)
 
+
 if args.init:
     cur.execute("""DROP TABLE IF EXISTS errors""")  # Reset database for testing
+    domains = google_domain_search("uia.no")
+    cur.executemany("INSERT INTO subdomains VALUES (?,?)",[(i, 1) for i in domains])
+
 cur.execute("""CREATE TABLE IF NOT EXISTS errors 
             (source TEXT NOT NULL, 
+            subdomain TEXT NOT NULL,
             target TEXT NOT NULL,
             error TEXT,
             updated_at TEXT,
@@ -94,18 +112,17 @@ def error_output(error, source, target, timestamp):
 
 
 if args.code and args.subdomain:
-    for error, source, target, timestamp in cur.execute(f"SELECT error, source, target, updated_at FROM errors WHERE error=\"{args.code}\" AND source=\"{args.subdomain}\" ORDER BY source").fetchall():
+    for error, source, target, timestamp in cur.execute(f"SELECT error, source, target, updated_at FROM errors WHERE error=\"{args.code}\" AND subdomain=\"{args.subdomain}\" ORDER BY subdomain").fetchall():
         print(error_output(error, source, target, timestamp))
 
 elif args.code:
-    for error, source, target, timestamp in cur.execute(f"SELECT error, source, target, updated_at FROM errors WHERE error=\"{args.code}\" ORDER BY source").fetchall():
+    for error, source, target, timestamp in cur.execute(f"SELECT error, source, target, updated_at FROM errors WHERE error=\"{args.code}\" ORDER BY subdomain").fetchall():
         print(error_output(error, source, target, timestamp))
 
 elif args.subdomain:
-    for error, source, target, timestamp in cur.execute(f"SELECT error, source, target, updated_at FROM errors WHERE source=\"{args.subdomain}\" ORDER BY source").fetchall():
-    for error, source, target, timestamp in cur.execute(""):
+    for error, source, target, timestamp in cur.execute(f"SELECT error, source, target, updated_at FROM errors WHERE subdomain=\"{args.subdomain}\" ORDER BY subdomain").fetchall():
         print(error_output(error, source, target, timestamp))
 
 else:
-    for error, source, target, timestamp in cur.execute("SELECT error, source, target, updated_at FROM errors ORDER BY source").fetchall():
+    for error, source, target, timestamp in cur.execute("SELECT error, source, target, updated_at FROM errors ORDER BY subdomain").fetchall():
         print(error_output(error, source, target, timestamp))
