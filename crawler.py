@@ -9,7 +9,7 @@ import aiosqlite
 import datetime
 import asyncio
 
-logging.basicConfig(level=logging.WARN, format="%(levelname)-8s %(message)s", handlers=[
+logging.basicConfig(level=logging.CRITICAL, format="%(levelname)-8s %(message)s", handlers=[
     logging.StreamHandler(sys.stdout),
     logging.FileHandler("debug.log")])
 
@@ -19,7 +19,7 @@ def get_base_url(url: str) -> str:
 
 
 async def google_domain_search(domain: str) -> Set[str]:
-    print(f"expanding {domain}")
+    print(f"Expanding {domain}")
     result = set((get_base_url(i) for i in google.search(
         f"site:{domain}", tld="no", lang="no", pause=5) if domain in i))
     return result
@@ -55,7 +55,7 @@ async def search_domain(domain: str, visited: Set[str], database_queue) -> None:
         try:
             resp = await client.get(domain)
         except httpx.ConnectError as e:
-            print(f"got an ssl error in {domain}")
+            print(f"Got an ssl error in {domain}")
             return
         to_search = set([resp])
         while to_search:
@@ -66,7 +66,6 @@ async def search_domain(domain: str, visited: Set[str], database_queue) -> None:
             if str(current.url) in visited:
                 continue
             visited.add(str(current.url))
-            print(f"searching {current.url}")
 
             # Get all the URLs in the current page
             text = soup.BeautifulSoup(current.text, "html.parser")
@@ -83,7 +82,6 @@ async def search_domain(domain: str, visited: Set[str], database_queue) -> None:
                     continue
 
                 try:  # getting the content of the URL we're checking currently
-                    print(f"checking {url}")
                     full_urls = handle_url(str(url), current)
                     resp = await client.get(full_urls[0])
                     await asyncio.sleep(0.5)
@@ -150,7 +148,6 @@ async def database_worker(data_queue, insert_length) -> None:
                     await asyncio.sleep(1)
                     # (source,target,code,timestamp) = await data_queue.get()
                     data = await data_queue.get()
-                    print(f"data={data}")
                     stored_data.append(data)
                     if len(stored_data) >= insert_length:
                         await cursor.executemany(
@@ -180,7 +177,7 @@ async def main() -> None:
     try:
         rows = await cur.execute("SELECT domain FROM subdomains where should_search=1")
         for (i,) in await rows.fetchall():
-            print(i)
+            #print(i)
             domains.add(i)
     except Exception as e:
         print(e.args)
@@ -201,14 +198,14 @@ async def main() -> None:
         database_worker(database_queue, insert_length))
     workers = []
 
-    print(domains)
+    #print(domains)
     for domain in domains:
         workers.append(asyncio.create_task(search_domain(
             domain, visited, database_queue), name=domain))
     # await asyncio.gather(*workers, return_exceptions=True)
     (done, running) = await asyncio.wait(workers, return_when=asyncio.FIRST_COMPLETED)
-    print(f"{done=}")
-    print(f"{running=}")
+    #print(f"{done=}")
+    #print(f"{running=}")
     while running:
         (done_new, running_new) = await asyncio.wait(workers, return_when=asyncio.FIRST_COMPLETED)
         if done_new != done:
