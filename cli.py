@@ -37,23 +37,23 @@ def disable_subdomain(name):
     con.commit()
 
 parser = argparse.ArgumentParser(description="The Arachomb link checker")
-#subparsers = parser.add_subparsers()
+subparsers = parser.add_subparsers()
 
-#subcommand_add = subparsers.add_parser('add')
-#subcommand_add.add_argument('name', type=str)
-#subcommand_add.set_defaults(func=add_subdomain)
+subcommand_add = subparsers.add_parser('add')
+subcommand_add.add_argument('name', nargs="+", type=str)
+subcommand_add.set_defaults(func=add_subdomain)
 
-#subcommand_remove = subparsers.add_parser('remove')
-#subcommand_remove.add_argument('name', type=str)
-#subcommand_remove.set_defaults(func=remove_subdomain)
+subcommand_remove = subparsers.add_parser('remove')
+subcommand_remove.add_argument('name', nargs="+", type=str)
+subcommand_remove.set_defaults(func=remove_subdomain)
 
-#subcommand_enable = subparsers.add_parser('enable')
-#subcommand_enable.add_argument('name', 'type=str)
-#subcommand_enable.set_defaults(func=enable_subdomain)
+subcommand_enable = subparsers.add_parser('enable')
+subcommand_enable.add_argument('name', nargs="+", type=str)
+subcommand_enable.set_defaults(func=enable_subdomain)
 
-#subcommand_disable = subparsers.add_parser('disable')
-#subcommand_disable.add_argument('name', 'type=str)
-#subcommand_disable.set_defaults(func=disable_subdomain)
+subcommand_disable = subparsers.add_parser('disable')
+subcommand_disable.add_argument('name', nargs="+", type=str)
+subcommand_disable.set_defaults(func=disable_subdomain)
 
 parser.add_argument("-c", "--code", type=int,
                     help="filter errors by the given error code")
@@ -68,7 +68,10 @@ parser.add_argument("-d", "--disable", nargs="+", type=str,
 # -d needs for the cli to store a list of the relevant subdomains
 
 args = parser.parse_args()
-
+if args.func:
+    args.func(name)
+    # something else?
+#else?  There was another branch to this, but I forget what he did here
 
 def suggestion(code):
     if code == "404":
