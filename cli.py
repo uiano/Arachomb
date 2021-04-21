@@ -26,6 +26,15 @@ def get_base_url(url: str) -> str:
 #    cur.execute("""DELETE FROM subdomains WHERE domain=?""", (name))
 #    con.commit()
 
+def enable_subdomain(name):
+    print("enabling {name}")
+    cur.execute("""UPDATE subdomains SET should_search = 1 WHERE domain = ?;""", (name))
+    con.commit()
+
+def disable_subdomain(name):
+    print("disabling {name}")
+    cur.execute("""UPDATE subdomains SET should_search = 0 WHERE domain = ?;""", (name))
+    con.commit()
 
 parser = argparse.ArgumentParser(description="The Arachomb link checker")
 #subparsers = parser.add_subparsers()
@@ -37,6 +46,14 @@ parser = argparse.ArgumentParser(description="The Arachomb link checker")
 #subcommand_remove = subparsers.add_parser('remove')
 #subcommand_remove.add_argument('name', type=str)
 #subcommand_remove.set_defaults(func=remove_subdomain)
+
+#subcommand_enable = subparsers.add_parser('enable')
+#subcommand_enable.add_argument('name', 'type=str)
+#subcommand_enable.set_defaults(func=enable_subdomain)
+
+#subcommand_disable = subparsers.add_parser('disable')
+#subcommand_disable.add_argument('name', 'type=str)
+#subcommand_disable.set_defaults(func=disable_subdomain)
 
 parser.add_argument("-c", "--code", type=int,
                     help="filter errors by the given error code")
@@ -81,6 +98,7 @@ cur.execute("""CREATE TABLE IF NOT EXISTS subdomains (
 if args.init:
     cur.execute("""DROP TABLE IF EXISTS errors""")  # Reset database for testing
     domains = google_domain_search("uia.no")
+    print(domains)
     cur.executemany("INSERT INTO subdomains VALUES (?,?)",[(i, 1) for i in domains])
 
 cur.execute("""CREATE TABLE IF NOT EXISTS errors 
