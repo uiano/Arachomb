@@ -6,35 +6,50 @@ import googlesearch as google
 import os
 
 
+
+
 def google_domain_search(domain: str) -> Set[str]:
     print(f"expanding {domain}")
     result = set((get_base_url(i) for i in google.search(
         f"site:{domain}", tld="no", lang="no", pause=5) if domain in i))
     return result
 
+
 def get_base_url(url: str) -> str:
     return "/".join(url.split("/")[:3])
 
-#def add_subdomain(name):
-#    print("adding subdomain now")
-#    cur.execute("""INSERT INTO subdomains VALUES (?, ?)""", (name, 1))
-#    con.commit()
+
+def add_subdomain(args):
+    con = sqlite3.connect("data.db")
+    cur = con.cursor()
+    print("adding subdomain now")
+    cur.executemany("""INSERT INTO subdomains VALUES (?, ?)""", (args.name, 1))
+    con.commit()
 
 
-#def remove_subdomain(name):
-#    print("removing subdomain now")
-#    cur.execute("""DELETE FROM subdomains WHERE domain=?""", (name))
-#    con.commit()
+def remove_subdomain(args):
+    con = sqlite3.connect("data.db")
+    cur = con.cursor()
+    print("removing subdomain now")
+    cur.executemany("""DELETE FROM subdomains WHERE domain=?""", (args.name))
+    con.commit()
 
-def enable_subdomain(name):
+
+def enable_subdomain(args):
+    con = sqlite3.connect("data.db")
+    cur = con.cursor()
     print("enabling {name}")
-    cur.execute("""UPDATE subdomains SET should_search = 1 WHERE domain = ?;""", (name))
+    cur.executemany("""UPDATE subdomains SET should_search = 1 WHERE domain = ?;""", (args.name))
     con.commit()
 
-def disable_subdomain(name):
+
+def disable_subdomain(args):
+    con = sqlite3.connect("data.db")
+    cur = con.cursor()
     print("disabling {name}")
-    cur.execute("""UPDATE subdomains SET should_search = 0 WHERE domain = ?;""", (name))
+    cur.executemany("""UPDATE subdomains SET should_search = 0 WHERE domain = ?;""", (args.name))
     con.commit()
+
 
 parser = argparse.ArgumentParser(description="The Arachomb link checker")
 subparsers = parser.add_subparsers()
@@ -63,13 +78,10 @@ parser.add_argument("--add_subdomain", nargs="+", type=str,
                     help="adds the specified subdomain to the database")
 parser.add_argument("-i", "--init", action="store_true", default=False,
                     help="reset the database")
-parser.add_argument("-d", "--disable", nargs="+", type=str,
-                    help="skips the selected subdomains or \"all\" when scanning")
-# -d needs for the cli to store a list of the relevant subdomains
 
 args = parser.parse_args()
 if args.func:
-    args.func(name)
+    args.func(args)
     # something else?
 #else?  There was another branch to this, but I forget what he did here
 
@@ -87,8 +99,6 @@ def suggestion(code):
     return "figure out what kind of error this is, because we do not know."
 
 
-con = sqlite3.connect("data.db")
-cur = con.cursor()
 
 # await cur.execute("""DROP TABLE IF EXISTS subdomains""")  # Reset database for testing
 cur.execute("""CREATE TABLE IF NOT EXISTS subdomains (
