@@ -135,6 +135,11 @@ subcommand_init = subparsers.add_parser('init')
 subcommand_init.add_argument('name', nargs="?", default="uia.no", type=str)
 subcommand_init.set_defaults(func=init)
 
+subcommand_print_errors = subparsers.add_parser("print_errors")
+subcommand_print_errors.add_argument("code",nargs="?",type=str)
+subcommand_print_errors.add_argument("subdomain",nargs="?",type=str)
+subcommand_print_errors.set_defaults(func=display_info)
+
 parser.add_argument("-c", "--code", type=int,
                     help="filter errors by the given error code")
 parser.add_argument("-s", "--subdomain", type=str,
