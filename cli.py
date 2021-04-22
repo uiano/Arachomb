@@ -6,7 +6,7 @@ import googlesearch as google
 import os
 
 
-
+DATABASE_NAME = "data.db"
 
 def google_domain_search(domain: str) -> Set[str]:
     print(f"expanding {domain}")
@@ -20,7 +20,7 @@ def get_base_url(url: str) -> str:
 
 
 def init(args):
-    con = sqlite3.connect("data.db")
+    con = sqlite3.connect(DATABASE_NAME)
     cur = con.cursor()
     cur.execute("""DROP TABLE IF EXISTS errors""")
     domains = google_domain_search(args.name)
@@ -29,7 +29,7 @@ def init(args):
 
 
 def add_subdomain(args):
-    con = sqlite3.connect("data.db")
+    con = sqlite3.connect(DATABASE_NAME)
     cur = con.cursor()
     print("adding subdomain now")
     cur.executemany("""INSERT INTO subdomains VALUES (?, 1)""", (args.name))
@@ -37,7 +37,7 @@ def add_subdomain(args):
 
 
 def remove_subdomain(args):
-    con = sqlite3.connect("data.db")
+    con = sqlite3.connect(DATABASE_NAME)
     cur = con.cursor()
     print("removing subdomain now")
     cur.executemany("""DELETE FROM subdomains WHERE domain=?""", (args.name))
@@ -45,7 +45,7 @@ def remove_subdomain(args):
 
 
 def enable_subdomain(args):
-    con = sqlite3.connect("data.db")
+    con = sqlite3.connect(DATABASE_NAME)
     cur = con.cursor()
     print("enabling {name}")
     cur.executemany("""UPDATE subdomains SET should_search = 1 WHERE domain = ?;""", (args.name))
@@ -53,7 +53,7 @@ def enable_subdomain(args):
 
 
 def disable_subdomain(args):
-    con = sqlite3.connect("data.db")
+    con = sqlite3.connect(DATABASE_NAME)
     cur = con.cursor()
     print("disabling {name}")
     cur.executemany("""UPDATE subdomains SET should_search = 0 WHERE domain = ?;""", (args.name))
