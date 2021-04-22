@@ -19,6 +19,15 @@ def get_base_url(url: str) -> str:
     return "/".join(url.split("/")[:3])
 
 
+def init(args):
+    con = sqlite3.connect("data.db")
+    cur = con.cursor()
+    cur.execute("""DROP TABLE IF EXISTS errors""")
+    domains = google_domain_search("uia.no")
+    print('\n'.join(domains))
+    cur.executemany("INSERT INTO subdomains VALUES (?,?)",[(i, 1) for i in domains])
+
+
 def add_subdomain(args):
     con = sqlite3.connect("data.db")
     cur = con.cursor()
@@ -70,14 +79,17 @@ subcommand_disable = subparsers.add_parser('disable')
 subcommand_disable.add_argument('name', nargs="+", type=str)
 subcommand_disable.set_defaults(func=disable_subdomain)
 
+subcommand_init = subparsers.add_parser('init')
+subcommand_init.add_argument('name', nargs="?", type=str)
+subcommand_init.set_defaults(func=init)
+
 parser.add_argument("-c", "--code", type=int,
                     help="filter errors by the given error code")
 parser.add_argument("-s", "--subdomain", type=str,
                     help="filter errors by the given subdomain")
 parser.add_argument("--add_subdomain", nargs="+", type=str,
                     help="adds the specified subdomain to the database")
-parser.add_argument("-i", "--init", action="store_true", default=False,
-                    help="reset the database")
+
 
 args = parser.parse_args()
 if args.func:
@@ -108,12 +120,6 @@ cur.execute("""CREATE TABLE IF NOT EXISTS subdomains (
             ) """)
 
 
-if args.init:
-    cur.execute("""DROP TABLE IF EXISTS errors""")  # Reset database for testing
-    domains = google_domain_search("uia.no")
-    print(domains)
-    cur.executemany("INSERT INTO subdomains VALUES (?,?)",[(i, 1) for i in domains])
-
 cur.execute("""CREATE TABLE IF NOT EXISTS errors 
             (source TEXT NOT NULL, 
             subdomain TEXT NOT NULL,
@@ -136,9 +142,15 @@ print("Fetching error logs from database...")
 
 
 def error_output(error, source, target, timestamp):
+    if error == "557":
+        error = "fault with the site's SSL certificate"
+    elif error == "5":
+        error = "fault relating to your computer's OS"
+    else:
+        error += " error"
     return f"""*****************\nWe found an error in {source}, in the link to 
         {target}\n\n
-        Getting the link returned a {error} error. Try {suggestion(error)}\n\n
+        Getting the link returned a {error}. Try to {suggestion(error)}\n\n
         Last checked at {timestamp}"""
 
 
