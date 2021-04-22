@@ -8,6 +8,7 @@ import os
 
 DATABASE_NAME = "data.db"
 
+
 def google_domain_search(domain: str) -> Set[str]:
     print(f"expanding {domain}")
     result = set((get_base_url(i) for i in google.search(
@@ -19,13 +20,41 @@ def get_base_url(url: str) -> str:
     return "/".join(url.split("/")[:3])
 
 
+def suggestion(code):
+    if code == "404":
+        return "make sure the URL is spelled correctly, and that the resource exists."
+    elif code == "403":
+        return "make sure the resource is publically available.  If this is intentional, ignore this error."
+    elif code == "405":
+        return "double check that the URL is spelled correctly, as the page only allows certain non-GET requests, so it won't appear properly in a browser."
+    elif code == "557":
+        return "give the website an up-to-date SSL certificate, since it currently does not have one."
+    elif code == "5":
+        return "make sure you are using an up to date version of python. you are likely using python3.8 with a minor version 2 or lower while on windows, this has some bugs in async code that are fixed in the later releases"
+    return "figure out what kind of error this is, because we do not know."
+
+
+def error_output(error, source, target, timestamp):
+    if error == "557":
+        error = "fault with the site's SSL certificate"
+    elif error == "5":
+        error = "fault relating to your computer's OS"
+    else:
+        error += " error"
+    return f"""*****************\nWe found an error in {source}, in the link to
+        {target}\n\n
+        Getting the link returned a {error}. Try to {suggestion(error)}\n\n
+        Last checked at {timestamp}"""
+
+
 def init(args):
     con = sqlite3.connect(DATABASE_NAME)
     cur = con.cursor()
     cur.execute("""DROP TABLE IF EXISTS errors""")
     domains = google_domain_search(args.name)
     print('\n'.join(domains))
-    cur.executemany("INSERT INTO subdomains VALUES (?,?)",[(i, 1) for i in domains])
+    cur.executemany("INSERT INTO subdomains VALUES (?,?)",
+                    [(i, 1) for i in domains])
 
 
 def add_subdomain(args):
@@ -48,7 +77,8 @@ def enable_subdomain(args):
     con = sqlite3.connect(DATABASE_NAME)
     cur = con.cursor()
     print("enabling {name}")
-    cur.executemany("""UPDATE subdomains SET should_search = 1 WHERE domain = ?;""", (args.name))
+    cur.executemany(
+        """UPDATE subdomains SET should_search = 1 WHERE domain = ?;""", (args.name))
     con.commit()
 
 
@@ -56,8 +86,30 @@ def disable_subdomain(args):
     con = sqlite3.connect(DATABASE_NAME)
     cur = con.cursor()
     print("disabling {name}")
-    cur.executemany("""UPDATE subdomains SET should_search = 0 WHERE domain = ?;""", (args.name))
+    cur.executemany(
+        """UPDATE subdomains SET should_search = 0 WHERE domain = ?;""", (args.name))
     con.commit()
+
+
+def display_info(args):
+    with sqlite3.connect(DATABASE_NAME) as con:
+      cur = con.cursor()
+      code, subdomain = args.code, args.subdomain
+      if args.code and args.subdomain:
+           for error, source, target, timestamp in cur.execute(f"SELECT error, source, target, updated_at FROM errors WHERE error=\"{args.code}\" AND subdomain=\"{args.subdomain}\" ORDER BY subdomain").fetchall():
+               print(error_output(error, source, target, timestamp))
+
+      elif args.code:
+          for error, source, target, timestamp in cur.execute(f"SELECT error, source, target, updated_at FROM errors WHERE error=\"{args.code}\" ORDER BY subdomain").fetchall():
+              print(error_output(error, source, target, timestamp))
+
+      elif args.subdomain:
+          for error, source, target, timestamp in cur.execute(f"SELECT error, source, target, updated_at FROM errors WHERE subdomain=\"{args.subdomain}\" ORDER BY subdomain").fetchall():
+              print(error_output(error, source, target, timestamp))
+
+      else:
+          for error, source, target, timestamp in cur.execute("SELECT error, source, target, updated_at FROM errors ORDER BY subdomain").fetchall():
+              print(error_output(error, source, target, timestamp))
 
 
 parser = argparse.ArgumentParser(description="The Arachomb link checker")
@@ -95,21 +147,7 @@ args = parser.parse_args()
 if args.func:
     args.func(args)
     # something else?
-#else?  There was another branch to this, but I forget what he did here
-
-def suggestion(code):
-    if code == "404":
-        return "make sure the URL is spelled correctly, and that the resource exists."
-    elif code == "403":
-        return "make sure the resource is publically available.  If this is intentional, ignore this error."
-    elif code == "405":
-        return "double check that the URL is spelled correctly, as the page only allows certain non-GET requests, so it won't appear properly in a browser."
-    elif code == "557":
-        return "give the website an up-to-date SSL certificate, since it currently does not have one."
-    elif code == "5":
-        return "make sure you are using an up to date version of python. you are likely using python3.8 with a minor version 2 or lower while on windows, this has some bugs in async code that are fixed in the later releases"
-    return "figure out what kind of error this is, because we do not know."
-
+# else?  There was another branch to this, but I forget what he did here
 
 
 # await cur.execute("""DROP TABLE IF EXISTS subdomains""")  # Reset database for testing
@@ -135,37 +173,3 @@ if args.add_subdomain:
 con.commit()
 
 
-# os.system("crawler.py")
-# Use subprocess.Popen instead?  Needs research
-
-print("Fetching error logs from database...")
-
-
-def error_output(error, source, target, timestamp):
-    if error == "557":
-        error = "fault with the site's SSL certificate"
-    elif error == "5":
-        error = "fault relating to your computer's OS"
-    else:
-        error += " error"
-    return f"""*****************\nWe found an error in {source}, in the link to 
-        {target}\n\n
-        Getting the link returned a {error}. Try to {suggestion(error)}\n\n
-        Last checked at {timestamp}"""
-
-
-if args.code and args.subdomain:
-    for error, source, target, timestamp in cur.execute(f"SELECT error, source, target, updated_at FROM errors WHERE error=\"{args.code}\" AND subdomain=\"{args.subdomain}\" ORDER BY subdomain").fetchall():
-        print(error_output(error, source, target, timestamp))
-
-elif args.code:
-    for error, source, target, timestamp in cur.execute(f"SELECT error, source, target, updated_at FROM errors WHERE error=\"{args.code}\" ORDER BY subdomain").fetchall():
-        print(error_output(error, source, target, timestamp))
-
-elif args.subdomain:
-    for error, source, target, timestamp in cur.execute(f"SELECT error, source, target, updated_at FROM errors WHERE subdomain=\"{args.subdomain}\" ORDER BY subdomain").fetchall():
-        print(error_output(error, source, target, timestamp))
-
-else:
-    for error, source, target, timestamp in cur.execute("SELECT error, source, target, updated_at FROM errors ORDER BY subdomain").fetchall():
-        print(error_output(error, source, target, timestamp))
