@@ -1,12 +1,17 @@
 from typing import Set
 import json
 import sqlite3
+import logging
 import argparse
 import googlesearch as google
 import os
 
 
 DATABASE_NAME = "data.db"
+
+logging.basicConfig(level=logging.WARN, format="%(levelname)-8s %(message)s", handlers=[
+    logging.StreamHandler(sys.stdout),
+    logging.FileHandler("output.log")])
 
 
 def google_domain_search(domain: str) -> Set[str]:
@@ -106,7 +111,7 @@ def remove_subdomain(args):
     con = sqlite3.connect(DATABASE_NAME)
     cur = con.cursor()
     print("removing subdomain now")
-    cur.executemany("""DELETE FROM subdomains WHERE domain=?""", (args.name))
+    cur.executemany("""DELETE IF EXISTS FROM subdomains WHERE domain=?""", (args.name))
     con.commit()
 
 
@@ -133,20 +138,28 @@ def display_info(args):
       cur = con.cursor()
       code, subdomain = args.code, args.subdomain
       if args.code and args.subdomain:
-           for error, source, target, timestamp in cur.execute(f"SELECT error, source, target, updated_at FROM errors WHERE error=\"{args.code}\" AND subdomain=\"{args.subdomain}\" ORDER BY subdomain").fetchall():
-               print(error_output(error, source, target, timestamp))
+          for error, source, target, timestamp in cur.execute(f"SELECT error, source, target, updated_at FROM errors WHERE error=\"{args.code}\" AND subdomain=\"{args.subdomain}\" ORDER BY subdomain").fetchall():
+              output = error_output(error, source, target, timestamp)
+              print(output)
+              logging.error(output)
 
       elif args.code:
           for error, source, target, timestamp in cur.execute(f"SELECT error, source, target, updated_at FROM errors WHERE error=\"{args.code}\" ORDER BY subdomain").fetchall():
-              print(error_output(error, source, target, timestamp))
+              output = error_output(error, source, target, timestamp)
+              print(output)
+              logging.error(output)
 
       elif args.subdomain:
           for error, source, target, timestamp in cur.execute(f"SELECT error, source, target, updated_at FROM errors WHERE subdomain=\"{args.subdomain}\" ORDER BY subdomain").fetchall():
-              print(error_output(error, source, target, timestamp))
+              output = error_output(error, source, target, timestamp)
+              print(output)
+              logging.error(output)
 
       else:
           for error, source, target, timestamp in cur.execute("SELECT error, source, target, updated_at FROM errors ORDER BY subdomain").fetchall():
-              print(error_output(error, source, target, timestamp))
+              output = error_output(error, source, target, timestamp)
+              print(output)
+              logging.error(output)
 
 
 parser = argparse.ArgumentParser(description="The Arachomb link checker")
@@ -169,7 +182,15 @@ subcommand_disable.add_argument('name', nargs="+", type=str)
 subcommand_disable.set_defaults(func=disable_subdomain)
 
 subcommand_init = subparsers.add_parser('init')
+subcommand_init.add_argument('name')
+subcommand_init.set_defaults(func=init)
+
+subcommand_init = subparsers.add_parser('find')
 subcommand_init.add_argument('name', nargs="?", default="uia.no", type=str)
+subcommand_init.set_defaults(func=init)
+
+subcommand_init = subparsers.add_parser('reset')
+subcommand_init.add_argument('name')
 subcommand_init.set_defaults(func=init)
 
 subcommand_print_errors = subparsers.add_parser("print_errors")
@@ -181,8 +202,6 @@ parser.add_argument("-c", "--code", type=int,
                     help="filter errors by the given error code")
 parser.add_argument("-s", "--subdomain", type=str,
                     help="filter errors by the given subdomain")
-parser.add_argument("--add_subdomain", nargs="+", type=str,
-                    help="adds the specified subdomain to the database")
 
 
 args = parser.parse_args()
@@ -190,13 +209,3 @@ if args.func:
     args.func(args)
     # something else?
 # else?  There was another branch to this, but I forget what he did here
-
-
-# await cur.execute("""DROP TABLE IF EXISTS subdomains""")  # Reset database for testing
-
-if args.add_subdomain:
-    cur.executemany("""INSERT INTO subdomains VALUES (?, 1)""",
-                    (args.add_subdomain))
-con.commit()
-
-
