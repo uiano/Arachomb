@@ -50,11 +50,48 @@ def error_output(error, source, target, timestamp):
 def init(args):
     con = sqlite3.connect(DATABASE_NAME)
     cur = con.cursor()
-    cur.execute("""DROP TABLE IF EXISTS errors""")
+    cur.execute("""CREATE TABLE IF NOT EXISTS errors 
+                (source TEXT NOT NULL, 
+                subdomain TEXT NOT NULL,
+                target TEXT NOT NULL,
+                error TEXT,
+                updated_at TEXT,
+                CONSTRAINT prim_key PRIMARY KEY (source, target) ON CONFLICT REPLACE
+                )""")
+    cur.execute("""CREATE TABLE IF NOT EXISTS subdomains (
+                domain TEXT NOT NULL, 
+                should_search BOOLEAN NOT NULL CHECK (should_search IN (0,1)),
+                PRIMARY KEY (domain) ON CONFLICT IGNORE
+                ) """)
+
+
+def find(args):
+    con = sqlite3.connect(DATABASE_NAME)
+    cur = con.cursor()
     domains = google_domain_search(args.name)
     print('\n'.join(domains))
     cur.executemany("INSERT INTO subdomains VALUES (?,?)",
                     [(i, 1) for i in domains])
+
+
+def reset():
+    con = sqlite3.connect(DATABASE_NAME)
+    cur = con.cursor()
+    cur.execute("""DROP TABLE IF EXISTS subdomains""")
+    cur.execute("""DROP TABLE IF EXISTS errors""")
+    cur.execute("""CREATE TABLE IF NOT EXISTS errors 
+                (source TEXT NOT NULL, 
+                subdomain TEXT NOT NULL,
+                target TEXT NOT NULL,
+                error TEXT,
+                updated_at TEXT,
+                CONSTRAINT prim_key PRIMARY KEY (source, target) ON CONFLICT REPLACE
+                )""")
+    cur.execute("""CREATE TABLE IF NOT EXISTS subdomains (
+                domain TEXT NOT NULL, 
+                should_search BOOLEAN NOT NULL CHECK (should_search IN (0,1)),
+                PRIMARY KEY (domain) ON CONFLICT IGNORE
+                ) """)
 
 
 def add_subdomain(args):
@@ -156,21 +193,6 @@ if args.func:
 
 
 # await cur.execute("""DROP TABLE IF EXISTS subdomains""")  # Reset database for testing
-cur.execute("""CREATE TABLE IF NOT EXISTS subdomains (
-            domain TEXT NOT NULL, 
-            should_search BOOLEAN NOT NULL CHECK (should_search IN (0,1)),
-            PRIMARY KEY (domain) ON CONFLICT IGNORE
-            ) """)
-
-
-cur.execute("""CREATE TABLE IF NOT EXISTS errors 
-            (source TEXT NOT NULL, 
-            subdomain TEXT NOT NULL,
-            target TEXT NOT NULL,
-            error TEXT,
-            updated_at TEXT,
-            CONSTRAINT prim_key PRIMARY KEY (source, target) ON CONFLICT REPLACE
-            )""")
 
 if args.add_subdomain:
     cur.executemany("""INSERT INTO subdomains VALUES (?, 1)""",
