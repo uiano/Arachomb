@@ -1,4 +1,5 @@
 from typing import Set
+import sys
 import json
 import sqlite3
 import logging
@@ -73,13 +74,14 @@ def init(args):
 def find(args):
     con = sqlite3.connect(DATABASE_NAME)
     cur = con.cursor()
+    print(f"expanding {args.name}")
     domains = google_domain_search(args.name)
     print('\n'.join(domains))
     cur.executemany("INSERT INTO subdomains VALUES (?,?)",
                     [(i, 1) for i in domains])
 
 
-def reset():
+def reset(args):
     con = sqlite3.connect(DATABASE_NAME)
     cur = con.cursor()
     cur.execute("""DROP TABLE IF EXISTS subdomains""")
@@ -111,25 +113,35 @@ def remove_subdomain(args):
     con = sqlite3.connect(DATABASE_NAME)
     cur = con.cursor()
     print("removing subdomain now")
-    cur.executemany("""DELETE IF EXISTS FROM subdomains WHERE domain=?""", (args.name))
+    cur.executemany("""DELETE FROM subdomains WHERE domain=?""", (args.name))
     con.commit()
 
 
 def enable_subdomain(args):
     con = sqlite3.connect(DATABASE_NAME)
     cur = con.cursor()
-    print("enabling {name}")
-    cur.executemany(
-        """UPDATE subdomains SET should_search = 1 WHERE domain = ?;""", (args.name))
+    print("Enabling")
+    if "all" in args.name:
+        cur.execute("UPDATE subdomains SET should_search = 1")
+    else:
+        cur.executemany(
+            """UPDATE subdomains SET should_search = 1 WHERE domain = ?;""", (args.name))
     con.commit()
 
 
 def disable_subdomain(args):
     con = sqlite3.connect(DATABASE_NAME)
     cur = con.cursor()
-    print("disabling {name}")
-    cur.executemany(
-        """UPDATE subdomains SET should_search = 0 WHERE domain = ?;""", (args.name))
+    print("Disabling")
+    print(args)
+    if "all" in args.name:
+        cur.execute("UPDATE subdomains SET should_search = 0")
+    else:
+        for domain in args.name:
+            print(domain)
+            print(type(domain))
+            cur.execute(
+                """UPDATE subdomains SET should_search = 0 WHERE domain = ?;""", ((domain)))
     con.commit()
 
 
@@ -162,6 +174,13 @@ def display_info(args):
               logging.error(output)
 
 
+def subdomains(args):
+    con = sqlite3.connect(DATABASE_NAME)
+    cur = con.cursor()
+    for name, search in cur.execute("SELECT * FROM subdomains").fetchall():
+        print(f"{name}: " + ("ACTIVE" if str(search) == "1" else "DISABLED"))
+
+
 parser = argparse.ArgumentParser(description="The Arachomb link checker")
 subparsers = parser.add_subparsers()
 
@@ -182,20 +201,21 @@ subcommand_disable.add_argument('name', nargs="+", type=str)
 subcommand_disable.set_defaults(func=disable_subdomain)
 
 subcommand_init = subparsers.add_parser('init')
-subcommand_init.add_argument('name')
 subcommand_init.set_defaults(func=init)
 
 subcommand_init = subparsers.add_parser('find')
 subcommand_init.add_argument('name', nargs="?", default="uia.no", type=str)
-subcommand_init.set_defaults(func=init)
+subcommand_init.set_defaults(func=find)
 
 subcommand_init = subparsers.add_parser('reset')
-subcommand_init.add_argument('name')
-subcommand_init.set_defaults(func=init)
+subcommand_init.set_defaults(func=reset)
+
+subcommand_init = subparsers.add_parser('subdomains')
+subcommand_init.set_defaults(func=subdomains)
 
 subcommand_print_errors = subparsers.add_parser("print_errors")
-subcommand_print_errors.add_argument("code",nargs="?",type=str)
-subcommand_print_errors.add_argument("subdomain",nargs="?",type=str)
+subcommand_print_errors.add_argument("code", nargs="?", type=int)
+subcommand_print_errors.add_argument("subdomain", nargs="?", type=str)
 subcommand_print_errors.set_defaults(func=display_info)
 
 parser.add_argument("-c", "--code", type=int,
