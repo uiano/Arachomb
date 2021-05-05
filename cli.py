@@ -76,7 +76,7 @@ def find(args):
     cur = con.cursor()
     print(f"expanding {args.name}")
     domains = google_domain_search(args.name)
-    print('\n'.join(domains))
+    print('\n'.join([domain.split('/')[2] for domain in domains]))
     cur.executemany("INSERT INTO subdomains VALUES (?,?)",
                     [(i, 1) for i in domains])
 
@@ -121,11 +121,13 @@ def enable_subdomain(args):
     con = sqlite3.connect(DATABASE_NAME)
     cur = con.cursor()
     print("Enabling")
+    print([item for tup in (("https://"+url, "http://"+url) for url in args.name) for item in tup])
     if "all" in args.name:
         cur.execute("UPDATE subdomains SET should_search = 1")
     else:
         cur.executemany(
-            """UPDATE subdomains SET should_search = 1 WHERE domain = ?;""", (args.name))
+            """UPDATE subdomains SET should_search = 1 WHERE domain = ?;""",
+            [item for tup in (("https://"+url, "http://"+url) for url in args.name) for item in tup])
     con.commit()
 
 
@@ -137,11 +139,8 @@ def disable_subdomain(args):
     if "all" in args.name:
         cur.execute("UPDATE subdomains SET should_search = 0")
     else:
-        for domain in args.name:
-            print(domain)
-            print(type(domain))
-            cur.execute(
-                """UPDATE subdomains SET should_search = 0 WHERE domain = ?;""", ((domain)))
+        cur.executemany(
+            """UPDATE subdomains SET should_search = 0 WHERE domain = ?;""", (args.name,))
     con.commit()
 
 

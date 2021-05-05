@@ -57,10 +57,19 @@ def handle_url(url: str, current) -> (str, str):
 async def search_domain(domain: str, visited: Set[str], database_queue) -> None:
     async with httpx.AsyncClient(timeout=30) as client:
         try:
-            resp = await client.get(domain)
+            resp = await client.get("https://" + domain)
         except httpx.ConnectError as e:
             print(f"Got an ssl error in {domain}")
             return
+        except Exception:
+            try:
+                resp = await client.get("http://" + domain)
+            except httpx.ConnectError as e:
+                print(f"Got a connection error in {domain}")
+                return
+            else:
+                await database_queue.put((str(current.url), current.url.host, full_urls[1], "557", str(datetime.datetime.today())))
+
         to_search = set([resp])
         while to_search:
             current = to_search.pop()
