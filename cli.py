@@ -18,7 +18,7 @@ logging.basicConfig(level=logging.WARN, format="%(levelname)-8s %(message)s", ha
 def google_domain_search(domain: str) -> Set[str]:
     print(f"expanding {domain}")
     result = set((get_base_url(i) for i in google.search(
-        f"site:{domain}", tld="no", lang="no", pause=5) if domain in i))
+        f"site:{domain}", tld="no", lang="no", pause=3, num_results=100) if domain in i))
     return result
 
 
@@ -76,9 +76,11 @@ def find(args):
     cur = con.cursor()
     print(f"expanding {args.name}")
     domains = google_domain_search(args.name)
-    print('\n'.join([domain.split('/')[2] for domain in domains]))
+    subdomains = [domain.split('/')[2] for domain in domains]
+    print("about to put them in the database")
     cur.executemany("INSERT INTO subdomains VALUES (?,?)",
-                    [(i, 1) for i in domains])
+                    [(i, 1) for i in subdomains])
+    print("Should have inserted the subdomains now, boss!")
 
 
 def reset(args):
