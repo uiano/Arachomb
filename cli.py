@@ -16,9 +16,8 @@ logging.basicConfig(level=logging.WARN, format="%(levelname)-8s %(message)s", ha
 
 
 def google_domain_search(domain: str) -> Set[str]:
-    print(f"expanding {domain}")
     result = set((get_base_url(i) for i in google.search(
-        f"site:{domain}", tld="no", lang="no", pause=3, num_results=100) if domain in i))
+        f"site:{domain}", tld="no", lang="no", pause=3, stop=100) if domain in i))
     return result
 
 
@@ -69,6 +68,7 @@ def init(args):
                 should_search BOOLEAN NOT NULL CHECK (should_search IN (0,1)),
                 PRIMARY KEY (domain) ON CONFLICT IGNORE
                 ) """)
+    con.commit()
 
 
 def find(args):
@@ -77,9 +77,10 @@ def find(args):
     print(f"expanding {args.name}")
     domains = google_domain_search(args.name)
     subdomains = [domain.split('/')[2] for domain in domains]
-    print("about to put them in the database")
+    print("about to put them in the database",subdomains)
     cur.executemany("INSERT INTO subdomains VALUES (?,?)",
                     [(i, 1) for i in subdomains])
+    con.commit()
     print("Should have inserted the subdomains now, boss!")
 
 
@@ -101,6 +102,7 @@ def reset(args):
                 should_search BOOLEAN NOT NULL CHECK (should_search IN (0,1)),
                 PRIMARY KEY (domain) ON CONFLICT IGNORE
                 ) """)
+    con.commit()
 
 
 def add_subdomain(args):
