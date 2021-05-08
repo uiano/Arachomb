@@ -154,7 +154,7 @@ def display_info(args):
       print(args)
       if args.code and args.subdomain:
           print("both")
-          for error, source, target, timestamp in cur.execute("SELECT error, source, target, updated_at FROM errors WHERE error=? AND subdomain=? ORDER BY subdomain",(args.code,args.subdomain,)).fetchall():
+          for error, source, target, timestamp in cur.execute("""SELECT error, source, target, updated_at FROM errors WHERE error=? AND subdomain LIKE ? ORDER BY subdomain""",(args.code,"%"+args.subdomain+"%",)).fetchall():
               output = error_output(error, source, target, timestamp)
               print(output)
               logging.error(output)
@@ -168,7 +168,7 @@ def display_info(args):
 
       elif args.subdomain:
           print("only subdomain")
-          for error, source, target, timestamp in cur.execute("SELECT error, source, target, updated_at FROM errors WHERE subdomain=? ORDER BY subdomain",(args.subdomain,)).fetchall():
+          for error, source, target, timestamp in cur.execute("""SELECT error, source, target, updated_at FROM errors WHERE subdomain LIKE ? ORDER BY subdomain""",("%"+args.subdomain+"%",)).fetchall():
               output = error_output(error, source, target, timestamp)
               print(output)
               logging.error(output)
