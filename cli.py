@@ -11,7 +11,6 @@ import os
 DATABASE_NAME = "data.db"
 
 logging.basicConfig(level=logging.WARN, format="%(levelname)-8s %(message)s", handlers=[
-    logging.StreamHandler(sys.stdout),
     logging.FileHandler("output.log")])
 
 
@@ -109,7 +108,7 @@ def add_subdomain(args):
     con = sqlite3.connect(DATABASE_NAME)
     cur = con.cursor()
     print("adding subdomain now")
-    cur.executemany("""INSERT INTO subdomains VALUES (?, 1)""", (args.name))
+    cur.executemany("""INSERT INTO subdomains VALUES (?, 1)""", (args.name,))
     con.commit()
 
 
@@ -117,7 +116,7 @@ def remove_subdomain(args):
     con = sqlite3.connect(DATABASE_NAME)
     cur = con.cursor()
     print("removing subdomain now")
-    cur.executemany("""DELETE FROM subdomains WHERE domain=?""", (args.name))
+    cur.executemany("""DELETE FROM subdomains WHERE domain=?""", (args.name,))
     con.commit()
 
 
@@ -125,13 +124,13 @@ def enable_subdomain(args):
     con = sqlite3.connect(DATABASE_NAME)
     cur = con.cursor()
     print("Enabling")
-    print([item for tup in (("https://"+url, "http://"+url) for url in args.name) for item in tup])
     if "all" in args.name:
         cur.execute("UPDATE subdomains SET should_search = 1")
     else:
+
         cur.executemany(
             """UPDATE subdomains SET should_search = 1 WHERE domain = ?;""",
-            [item for tup in (("https://"+url, "http://"+url) for url in args.name) for item in tup])
+            (args.name,))
     con.commit()
 
 
@@ -152,25 +151,30 @@ def display_info(args):
     with sqlite3.connect(DATABASE_NAME) as con:
       cur = con.cursor()
       code, subdomain = args.code, args.subdomain
+      print(args)
       if args.code and args.subdomain:
-          for error, source, target, timestamp in cur.execute(f"SELECT error, source, target, updated_at FROM errors WHERE error=\"{args.code}\" AND subdomain=\"{args.subdomain}\" ORDER BY subdomain").fetchall():
+          print("both")
+          for error, source, target, timestamp in cur.execute("SELECT error, source, target, updated_at FROM errors WHERE error=? AND subdomain=? ORDER BY subdomain",(args.code,args.subdomain,)).fetchall():
               output = error_output(error, source, target, timestamp)
               print(output)
               logging.error(output)
 
       elif args.code:
-          for error, source, target, timestamp in cur.execute(f"SELECT error, source, target, updated_at FROM errors WHERE error=\"{args.code}\" ORDER BY subdomain").fetchall():
+          print("only code")
+          for error, source, target, timestamp in cur.execute("SELECT error, source, target, updated_at FROM errors WHERE error=? ORDER BY subdomain",(args.code,)).fetchall():
               output = error_output(error, source, target, timestamp)
               print(output)
               logging.error(output)
 
       elif args.subdomain:
-          for error, source, target, timestamp in cur.execute(f"SELECT error, source, target, updated_at FROM errors WHERE subdomain=\"{args.subdomain}\" ORDER BY subdomain").fetchall():
+          print("only subdomain")
+          for error, source, target, timestamp in cur.execute("SELECT error, source, target, updated_at FROM errors WHERE subdomain=? ORDER BY subdomain",(args.subdomain,)).fetchall():
               output = error_output(error, source, target, timestamp)
               print(output)
               logging.error(output)
 
       else:
+          print("neither")
           for error, source, target, timestamp in cur.execute("SELECT error, source, target, updated_at FROM errors ORDER BY subdomain").fetchall():
               output = error_output(error, source, target, timestamp)
               print(output)
