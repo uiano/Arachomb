@@ -210,15 +210,15 @@ subcommand_disable.set_defaults(func=disable_subdomain)
 subcommand_init = subparsers.add_parser('init')
 subcommand_init.set_defaults(func=init)
 
-subcommand_init = subparsers.add_parser('find')
-subcommand_init.add_argument('name', nargs="?", default="uia.no", type=str)
-subcommand_init.set_defaults(func=find)
+subcommand_find = subparsers.add_parser('find')
+subcommand_find.add_argument('name', nargs="?", default="uia.no", type=str)
+subcommand_find.set_defaults(func=find)
 
-subcommand_init = subparsers.add_parser('reset')
-subcommand_init.set_defaults(func=reset)
+subcommand_reset = subparsers.add_parser('reset')
+subcommand_reset.set_defaults(func=reset)
 
-subcommand_init = subparsers.add_parser('subdomains')
-subcommand_init.set_defaults(func=subdomains)
+subcommand_subdomains = subparsers.add_parser('subdomains')
+subcommand_subdomains.set_defaults(func=subdomains)
 
 subcommand_print_errors = subparsers.add_parser("print_errors")
 subcommand_print_errors.add_argument("code", nargs="?", type=int)
