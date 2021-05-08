@@ -221,14 +221,9 @@ subcommand_subdomains = subparsers.add_parser('subdomains')
 subcommand_subdomains.set_defaults(func=subdomains)
 
 subcommand_print_errors = subparsers.add_parser("print_errors")
-subcommand_print_errors.add_argument("code", nargs="?", type=int)
-subcommand_print_errors.add_argument("subdomain", nargs="?", type=str)
+subcommand_print_errors.add_argument("-c","--code", nargs="?", type=int,help="filter errors by the given error code")
+subcommand_print_errors.add_argument("-s","--subdomain", nargs="?", type=str,help="filter errors by the given subdomain")
 subcommand_print_errors.set_defaults(func=display_info)
-
-parser.add_argument("-c", "--code", type=int,
-                    help="filter errors by the given error code")
-parser.add_argument("-s", "--subdomain", type=str,
-                    help="filter errors by the given subdomain")
 
 
 args = parser.parse_args()
