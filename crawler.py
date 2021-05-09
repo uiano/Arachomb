@@ -74,7 +74,7 @@ async def search_domain(domain: str, visited: Set[str], database_queue) -> None:
         while to_search:
             current = to_search.pop()
 
-            if not current.url.host.endswith("uia.no"):
+            if not current.url.host.endswith(domain):
                 continue
             if str(current.url) in visited:
                 continue
@@ -103,7 +103,7 @@ async def search_domain(domain: str, visited: Set[str], database_queue) -> None:
                         pass
 
                     if 200 <= resp.status_code < 300 or resp.status_code == 301 or resp.status_code == 302:
-                        if ".js" not in full_urls[0] and resp.url.host.endswith("uia.no"):
+                        if ".js" not in full_urls[0] and resp.url.host.endswith(domain):
                             to_search.add(resp)
 
                         logging.debug(
@@ -222,7 +222,7 @@ async def main() -> None:
     while running:
         (done_new, running_new) = await asyncio.wait(workers, return_when=asyncio.FIRST_COMPLETED)
         if done_new != done:
-            print(f"{len(done)}/{len(done)+len(running)} workers done")
+            print(f"{len(done_new)}/{len(done_new)+len(running_new)} workers done")
         done, running = done_new, running_new
         await asyncio.sleep(1)
     await database_queue.join()
