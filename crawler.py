@@ -9,9 +9,13 @@ import aiosqlite
 import datetime
 import asyncio
 
+
+with open("deadlinks.csv", "w") as f:
+    f.write("")
+
 logging.basicConfig(level=logging.CRITICAL, format="%(levelname)-8s %(message)s", handlers=[
     logging.StreamHandler(sys.stdout),
-    logging.FileHandler("debug.log")])
+    logging.FileHandler("deadlinks.csv")])
 
 
 def get_base_url(url: str) -> str:
@@ -53,10 +57,19 @@ def handle_url(url: str, current) -> (str, str):
 async def search_domain(domain: str, visited: Set[str], database_queue) -> None:
     async with httpx.AsyncClient(timeout=30) as client:
         try:
-            resp = await client.get(domain)
+            resp = await client.get("https://" + domain)
         except httpx.ConnectError as e:
             print(f"Got an ssl error in {domain}")
             return
+        except Exception:
+            try:
+                resp = await client.get("http://" + domain)
+            except httpx.ConnectError as e:
+                print(f"Got a connection error in {domain}")
+                return
+            else:
+                await database_queue.put((str(current.url), current.url.host, full_urls[1], "557", str(datetime.datetime.today())))
+
         to_search = set([resp])
         while to_search:
             current = to_search.pop()
@@ -94,7 +107,7 @@ async def search_domain(domain: str, visited: Set[str], database_queue) -> None:
                             to_search.add(resp)
 
                         logging.debug(
-                            f"******************\n   {full_urls[0]}\n   {url}\nIn {str(current.url)}\n{resp.status_code}")
+                            f"{full_urls[0]},{url},{str(current.url)},{resp.status_code}")
 
                     else:  # Got an HTTP error
                         await database_queue.put((str(current.url), current.url.host, full_urls[0], str(resp.status_code), str(datetime.datetime.today())))
@@ -102,7 +115,7 @@ async def search_domain(domain: str, visited: Set[str], database_queue) -> None:
                         # await cur.commit()
                         # await con.commit()
                         logging.error(
-                            f"******************\n   {full_urls[0]}\n   {url}\nIn {str(current.url)}\n{resp.status_code}")
+                            f"{full_urls[0]},{url},{str(current.url)},{resp.status_code}")
 
                 except httpx.ConnectError as e:  # SSL errors and such?
                     if not e.args[0].startswith("[SSL: WRONG_VERSION_NUMBER]"):
@@ -116,7 +129,7 @@ async def search_domain(domain: str, visited: Set[str], database_queue) -> None:
                         if 200 <= resp_https.status_code < 300 or resp_https.status_code == 301 or resp_https.status_code == 302:
                             await database_queue.put((str(current.url), current.url.host, full_urls[1], "557", str(datetime.datetime.today())))
                             logging.error(
-                                f"******************\n   {full_urls[0]}\n   {url}\nIn {str(current.url)}\n{e.args}")
+                                f"{full_urls[1]},{url},{str(current.url)},{e.args}")
 
                 except httpx.ConnectTimeout as e:
                     # TODO: what do we do on a timeout
@@ -135,7 +148,7 @@ async def search_domain(domain: str, visited: Set[str], database_queue) -> None:
                     # await cur.commit()
                     # await con.commit()
                     logging.error(
-                        f"******************\n   {full_urls[0]}\n   {url}\nIn {str(current.url)}\n{e.args}")
+                        f"{full_urls[0]},{url},{str(current.url)},{e.args}")
 
 
 async def database_worker(data_queue, insert_length) -> None:
