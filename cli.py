@@ -44,7 +44,8 @@ def error_output(error, source, target, timestamp):
     elif error == "5":
         error = "fault relating to your computer's OS"
     else:
-        error += " error"
+        #error += " error"
+        pass
     return f"""*****************\nWe found an error in {source}, in the link to
         {target}\n\n
         Getting the link returned a {error}. Try to {suggestion(error)}\n\n
