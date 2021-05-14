@@ -13,7 +13,7 @@ import asyncio
 with open("deadlinks.csv", "w") as f:
     f.write("")
 
-logging.basicConfig(level=logging.CRITICAL, format="%(levelname)-8s %(message)s", handlers=[
+logging.basicConfig(level=logging.WARN, format="%(levelname)-8s %(message)s", handlers=[
     logging.StreamHandler(sys.stdout),
     logging.FileHandler("deadlinks.csv")])
 
@@ -41,7 +41,7 @@ def handle_url(url: str, current) -> (str, str):
     elif url.startswith("#"):
         output = (str(current.url) + url,
                   str(current.url).replace('s', '', 1) + url)
-        if str(current.url)[4].toLower() == 's':
+        if str(current.url)[4].lower() == 's':
             return output
         else:
             return (output[1], output[0])
@@ -68,7 +68,7 @@ async def search_domain(domain: str, visited: Set[str], database_queue) -> None:
                 print(f"Got a connection error in {domain}")
                 return
             else:
-                await database_queue.put((str(current.url), current.url.host, full_urls[1], "557", str(datetime.datetime.today())))
+                await database_queue.put((str(resp.url), resp.url.host, str(resp.url), "557", str(datetime.datetime.today())))
 
         to_search = set([resp])
         while to_search:
@@ -81,21 +81,28 @@ async def search_domain(domain: str, visited: Set[str], database_queue) -> None:
             visited.add(str(current.url))
 
             # Get all the URLs in the current page
-            text = soup.BeautifulSoup(current.text, "html.parser")
+            try:
+                text = soup.BeautifulSoup(current.text, "html.parser")
+            except:
+                print(current)
+                continue
             hrefs = {i.get("href") for i in text.find_all(
-                href=True) if i.get("href") not in visited}
+                href=True)}
             srcs = {i.get("src") for i in text.find_all(
-                src=True) if i.get("src") not in visited}
+                src=True)}
 
             # Loop over the URLs in the current page
             for url in hrefs | srcs:
                 if any(url.startswith(i) for i in ["mailto:", "tel:", "javascript:", "#content-middle", "about:blank", "skype:"]):
                     continue
-                if url == "#" or "linkedin" in url:
+                if url == "#" or "linkedin" in url or "\\" in url:
                     continue
 
                 try:  # getting the content of the URL we're checking currently
                     full_urls = handle_url(str(url), current)
+                    #TODO: add the full url, so it actually skips already searched 
+                    if full_urls[0] in visited or full_urls[1] in visited:
+                        continue
                     resp = await client.get(full_urls[0])
                     await asyncio.sleep(0.5)
 
@@ -124,7 +131,7 @@ async def search_domain(domain: str, visited: Set[str], database_queue) -> None:
                     try:
                         resp_https = await client.get(full_urls[1])
                     except Exception as e:
-                        print(e.args)
+                        print("130".e.args)
                     else:
                         if 200 <= resp_https.status_code < 300 or resp_https.status_code == 301 or resp_https.status_code == 302:
                             await database_queue.put((str(current.url), current.url.host, full_urls[1], "557", str(datetime.datetime.today())))
@@ -133,10 +140,12 @@ async def search_domain(domain: str, visited: Set[str], database_queue) -> None:
 
                 except httpx.ConnectTimeout as e:
                     # TODO: what do we do on a timeout
+                    #print("139"," timeout ",e)
                     continue
 
-                except httpx.TooManyRedirects:
+                except httpx.TooManyRedirects as e:
                     # TODO: edit redirect maximum?
+                    #print("144"," redirects ",e)
                     continue
 
                 except OSError:
@@ -149,6 +158,8 @@ async def search_domain(domain: str, visited: Set[str], database_queue) -> None:
                     # await con.commit()
                     logging.error(
                         f"{full_urls[0]},{url},{str(current.url)},{e.args}")
+                except httpx.RemoteProtocolError:
+                    print("protocol error")
 
 
 async def database_worker(data_queue, insert_length) -> None:
@@ -169,13 +180,18 @@ async def database_worker(data_queue, insert_length) -> None:
                         await con.commit()
                     data_queue.task_done()
             except asyncio.CancelledError:
+                print("storing final data")
                 if len(stored_data) != 0:
                     await cursor.executemany(
                         "INSERT INTO errors VALUES (?,?,?,?,?)", stored_data)
+                    await con.commit()
+                print("stored final data")
             finally:
-                await cursor.close()
+                print("trying to close")
+                print("closing")
+                return
     except Exception as e:
-        print(e.args)
+        print("185",e.args)
 
 
 DATABASE_NAME = "data.db"
@@ -227,6 +243,10 @@ async def main() -> None:
         await asyncio.sleep(1)
     await database_queue.join()
     data_worker.cancel()
+    await data_worker
+    for task in done:
+        await task
+    del done
 
 
 if __name__ == "__main__":
