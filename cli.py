@@ -139,7 +139,6 @@ def disable_subdomain(args):
     con = sqlite3.connect(DATABASE_NAME)
     cur = con.cursor()
     print("Disabling")
-    print(args)
     if "all" in args.name:
         cur.execute("UPDATE subdomains SET should_search = 0")
     else:
@@ -152,30 +151,25 @@ def display_info(args):
     with sqlite3.connect(DATABASE_NAME) as con:
       cur = con.cursor()
       code, subdomain = args.code, args.subdomain
-      print(args)
       if args.code and args.subdomain:
-          print("both")
           for error, source, target, timestamp in cur.execute("""SELECT error, source, target, updated_at FROM errors WHERE error=? AND subdomain LIKE ? ORDER BY subdomain""",(args.code,"%"+args.subdomain+"%",)).fetchall():
               output = error_output(error, source, target, timestamp)
               print(output)
               logging.error(output)
 
       elif args.code:
-          print("only code")
           for error, source, target, timestamp in cur.execute("SELECT error, source, target, updated_at FROM errors WHERE error=? ORDER BY subdomain",(args.code,)).fetchall():
               output = error_output(error, source, target, timestamp)
               print(output)
               logging.error(output)
 
       elif args.subdomain:
-          print("only subdomain")
           for error, source, target, timestamp in cur.execute("""SELECT error, source, target, updated_at FROM errors WHERE subdomain LIKE ? ORDER BY subdomain""",("%"+args.subdomain+"%",)).fetchall():
               output = error_output(error, source, target, timestamp)
               print(output)
               logging.error(output)
 
       else:
-          print("neither")
           for error, source, target, timestamp in cur.execute("SELECT error, source, target, updated_at FROM errors ORDER BY subdomain").fetchall():
               output = error_output(error, source, target, timestamp)
               print(output)
